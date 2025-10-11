@@ -1,0 +1,14 @@
+cycler==0.12.1
+fonttools==4.59.2
+kiwisolver==1.4.9
+packaging==25.0
+pandas==2.3.3
+pyparsing==3.2.3
+python-dateutil==2.9.0.post0
+pytz==2025.2
+six==1.17.0
+tzdata==2025.2
+numpy
+matplotlib
+pillow
+

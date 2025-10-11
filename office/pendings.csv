@@ -1,0 +1,11 @@
+sno,work_description,status,remarks
+1,04/09/2025,power report,completed,air ratio to be added
+2,boiler controller,completed
+3,fire hydrant engine pr switch,completed,to be confirmed
+4,paintshop energy comparison,completed
+5,compressor EnPi,pending,completed
+6,mee EnPi,pending
+7,paintshop meter,pending,communication
+8,er&d psb1 acb,pending
+9,er&d g10 changeover,pending
+10,tr11 overload trip check,completed

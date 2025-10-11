@@ -1,0 +1,14 @@
+contourpy @ file:///home/builder/.termux-build/python-contourpy/src/dist/contourpy-1.3.3-cp312-cp312-linux_aarch64.whl#sha256=1a82d25d1b5868d7bc64d6f3e15aa35751f4ac66cbba5f230fde8130fd3ca261
+cycler==0.12.1
+fonttools==4.59.2
+kiwisolver==1.4.9
+matplotlib @ file:///home/builder/.termux-build/matplotlib/src/dist/matplotlib-3.10.6-cp312-cp312-linux_aarch64.whl#sha256=146f3e85d9e51c935943dfb81535cedb63bd28878e912f840f2bfc25c9044ea3
+numpy @ file:///home/builder/.termux-build/python-numpy/src/dist/numpy-2.2.5-cp312-cp312-linux_aarch64.whl#sha256=bb263430c58123c72e01dae41691aa54d2d399cc779d2e77fbf8b41564156a4b
+packaging==25.0
+pandas==2.3.3
+pillow @ file:///home/builder/.termux-build/python-pillow/src
+pyparsing==3.2.3
+python-dateutil==2.9.0.post0
+pytz==2025.2
+six==1.17.0
+tzdata==2025.2
