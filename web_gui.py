@@ -1,4 +1,135 @@
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+import json
+import subprocess
+import cgi
+import os
+import pandas as pd
+from datetime import datetime
+import signal
+import sys
+import time
 
+class LifeTrackerHandler(SimpleHTTPRequestHandler):
+    
+    def do_GET(self):
+        if self.path == '/':
+            self.path = '/index.html'
+        elif self.path == '/get_categories':
+            categories = self.get_categories()
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(categories).encode())
+            return
+        return SimpleHTTPRequestHandler.do_GET(self)
+    
+    def get_categories(self):
+        categories = []
+        try:
+            if os.path.exists("lifetracker.csv"):
+                df = pd.read_csv("lifetracker.csv", header=None)
+                if len(df.columns) >= 4:
+                    categories = df[3].unique().tolist()
+        except:
+            pass
+        return categories
+    
+    def do_POST(self):
+        if self.path == '/add_entry':
+            form = cgi.FieldStorage(
+                fp=self.rfile,
+                headers=self.headers,
+                environ={'REQUEST_METHOD': 'POST'}
+            )
+            
+            date = form.getvalue('date')
+            activity = form.getvalue('activity')
+            minutes = form.getvalue('minutes')
+            category = form.getvalue('category')
+            
+            with open("lifetracker.csv", "a") as f:
+                f.write(f"{date},{activity},{minutes},{category}\n")
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "success"}).encode())
+            
+        elif self.path == '/run_report':
+            form = cgi.FieldStorage(
+                fp=self.rfile,
+                headers=self.headers,
+                environ={'REQUEST_METHOD': 'POST'}
+            )
+            
+            report_type = form.getvalue('report_type')
+            month = form.getvalue('month')
+            
+            scripts = {
+                'daily': './daily2.awk',
+                'category': './category2.awk', 
+                'activity': './activity2.awk'
+            }
+            
+            image_files = {
+                'daily': 'reports/daily_activity_plot.png',
+                'category': 'reports/category_plot.png',
+                'activity': 'reports/activity_checklist.png'
+            }
+            
+            if report_type in scripts:
+                try:
+                    # Run the script and capture both output and summary
+                    result = subprocess.run(
+                        [scripts[report_type], month], 
+                        capture_output=True, 
+                        text=True,
+                        timeout=30
+                    )
+                    
+                    # Filter out AM intent lines from summary
+                    summary_lines = []
+                    if result.stdout:
+                        for line in result.stdout.split('\n'):
+                            if not line.strip().startswith('am start'):
+                                summary_lines.append(line)
+                    clean_summary = '\n'.join(summary_lines)
+                    
+                    if result.returncode == 0:
+                        status = "success"
+                        image_path = image_files[report_type]
+                        if not os.path.exists(image_path):
+                            status = "error"
+                            output = "Report image not found"
+                        else:
+                            output = image_path
+                    else:
+                        status = "error"
+                        output = result.stderr
+                except subprocess.TimeoutExpired:
+                    status = "error"
+                    output = "Report generation timed out"
+                    clean_summary = ""
+                except Exception as e:
+                    status = "error"
+                    output = str(e)
+                    clean_summary = ""
+            else:
+                status = "error"
+                output = "Invalid report type"
+                clean_summary = ""
+                
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": status, 
+                "output": output,
+                "summary": clean_summary
+            }).encode())
+
+# HTML UI with Summary Display
+html_content = """
 <!DOCTYPE html>
 <html>
 <head>
@@ -303,3 +434,25 @@
     </script>
 </body>
 </html>
+"""
+
+# Create reports folder and HTML
+os.makedirs("reports", exist_ok=True)
+with open("index.html", "w") as f:
+    f.write(html_content)
+
+def signal_handler(sig, frame):
+    print("\nServer stopped successfully")
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+
+print("Starting Life Tracker Web GUI...")
+print("Open your browser and go to: http://localhost:8000")
+print("Press Ctrl+C to stop the server")
+
+try:
+    httpd = HTTPServer(('0.0.0.0', 8000), LifeTrackerHandler)
+    httpd.serve_forever()
+except KeyboardInterrupt:
+    print("Server stopped")
