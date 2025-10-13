@@ -58,7 +58,7 @@ for bar, pct in zip(bars, daily_completion):
              f'{pct:.0f}%', ha='center', va='bottom', fontsize=8)
 
 plt.tight_layout()
-plt.savefig("/storage/emulated/0/activity_checklist.png", dpi=150, bbox_inches='tight')
+plt.savefig("/data/data/com.termux/files/home/termux_files/reports/activity_checklist.png", dpi=150, bbox_inches='tight')
 plt.show()
 
 # Print summary statistics

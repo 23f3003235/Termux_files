@@ -43,7 +43,7 @@ plt.tight_layout()
 
 # Save the plot
 try:
-    file_path = '/sdcard/daily_activity_plot.png'
+    file_path = '/data/data/com.termux/files/home/termux_files/reports/daily_activity_plot.png'
     plt.savefig(file_path, dpi=100, bbox_inches='tight')
     plt.close()
 

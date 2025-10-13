@@ -1,0 +1,237 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Life Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 600px; 
+            margin: 0 auto; 
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .section { 
+            margin: 20px 0; 
+            padding: 15px; 
+            border: 1px solid #ddd; 
+            border-radius: 5px; 
+        }
+        input, select, button { 
+            padding: 10px; 
+            margin: 5px 0; 
+            width: 100%; 
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button { 
+            background: #4CAF50; 
+            color: white; 
+            border: none; 
+            cursor: pointer; 
+            font-size: 16px;
+        }
+        button:hover { background: #45a049; }
+        .result { 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-radius: 5px; 
+            font-size: 14px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        h1 { color: #333; text-align: center; }
+        h2 { color: #555; border-bottom: 2px solid #4CAF50; padding-bottom: 5px; }
+        .new-category { display: none; margin-top: 10px; }
+        .today-btn { 
+            background: #2196F3; 
+            padding: 8px 12px; 
+            margin: 5px 0; 
+            font-size: 14px; 
+            width: auto; 
+        }
+        .preview-btn {
+            background: #2196F3;
+            margin-top: 10px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Life Tracker</h1>
+        
+        <div class="section">
+            <h2>Add New Entry</h2>
+            <form onsubmit="addEntry(event)">
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="date" id="dateInput" style="flex: 1;" required>
+                    <button type="button" class="today-btn" onclick="setToday()">Today</button>
+                </div>
+                <input type="text" name="activity" placeholder="Activity" required>
+                <input type="number" name="minutes" placeholder="Minutes" required>
+                
+                <select id="categorySelect" onchange="handleCategoryChange()" required>
+                    <option value="">Select Category</option>
+                </select>
+                
+                <div id="newCategoryDiv" class="new-category">
+                    <input type="text" id="newCategoryInput" placeholder="Enter new category">
+                </div>
+                
+                <button type="submit">Add Entry</button>
+            </form>
+            <div id="addResult"></div>
+        </div>
+        
+        <div class="section">
+            <h2>Generate Reports</h2>
+            
+            <select id="reportType">
+                <option value="daily">Daily Time Utilization</option>
+                <option value="category">Category-wise Time</option>
+                <option value="activity">Activity Statistics</option>
+            </select>
+            <input type="number" id="month" placeholder="Month (1-12)" min="1" max="12" required>
+            <button onclick="generateReport()">Generate Report</button>
+            <div id="reportResult"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            loadCategories();
+            setToday();
+        });
+        
+        function setToday() {
+            const today = new Date();
+            const formattedDate = today.toISOString().split('T')[0];
+            document.getElementById('dateInput').value = formattedDate;
+        }
+        
+        function formatDateForCSV(dateString) {
+            const parts = dateString.split('-');
+            if (parts.length === 3) {
+                return `${parts[2]}-${parts[1]}-${parts[0]}`;
+            }
+            return dateString;
+        }
+        
+        async function loadCategories() {
+            try {
+                const response = await fetch('/get_categories');
+                const categories = await response.json();
+                const select = document.getElementById('categorySelect');
+                while (select.children.length > 1) {
+                    select.removeChild(select.lastChild);
+                }
+                categories.forEach(cat => {
+                    const option = new Option(cat, cat);
+                    select.appendChild(option);
+                });
+                const newOption = new Option("+ Add New Category", "new");
+                select.appendChild(newOption);
+            } catch (error) {
+                console.error('Error loading categories:', error);
+            }
+        }
+        
+        function handleCategoryChange() {
+            const select = document.getElementById('categorySelect');
+            const newCategoryDiv = document.getElementById('newCategoryDiv');
+            const newCategoryInput = document.getElementById('newCategoryInput');
+            if (select.value === 'new') {
+                newCategoryDiv.style.display = 'block';
+                newCategoryInput.required = true;
+            } else {
+                newCategoryDiv.style.display = 'none';
+                newCategoryInput.required = false;
+            }
+        }
+        
+        async function addEntry(event) {
+            event.preventDefault();
+            const dateInput = document.getElementById('dateInput');
+            const formattedDate = formatDateForCSV(dateInput.value);
+            const formData = new FormData();
+            formData.append('date', formattedDate);
+            formData.append('activity', document.querySelector('input[name="activity"]').value);
+            formData.append('minutes', document.querySelector('input[name="minutes"]').value);
+            const categorySelect = document.getElementById('categorySelect');
+            const newCategoryInput = document.getElementById('newCategoryInput');
+            let category;
+            if (categorySelect.value === 'new') {
+                category = newCategoryInput.value.trim();
+                if (!category) {
+                    alert('Please enter a new category');
+                    return;
+                }
+            } else {
+                category = categorySelect.value;
+            }
+            formData.append('category', category);
+            try {
+                const response = await fetch('/add_entry', { method: 'POST', body: formData });
+                const result = await response.json();
+                const resultDiv = document.getElementById('addResult');
+                if (result.status === 'success') {
+                    resultDiv.innerHTML = '<div class="result success">Entry added successfully!</div>';
+                    document.querySelector('input[name="activity"]').value = '';
+                    document.querySelector('input[name="minutes"]').value = '';
+                    document.getElementById('newCategoryDiv').style.display = 'none';
+                    categorySelect.value = '';
+                    loadCategories();
+                } else {
+                    resultDiv.innerHTML = '<div class="result error">Error adding entry</div>';
+                }
+            } catch {
+                document.getElementById('addResult').innerHTML = '<div class="result error">Network error</div>';
+            }
+        }
+        
+        async function generateReport() {
+            const reportType = document.getElementById('reportType').value;
+            const month = document.getElementById('month').value;
+            if (!month) {
+                alert('Please enter a month');
+                return;
+            }
+            const formData = new FormData();
+            formData.append('report_type', reportType);
+            formData.append('month', month);
+            const button = document.querySelector('button[onclick="generateReport()"]');
+            const originalText = button.textContent;
+            button.textContent = 'Generating...';
+            button.disabled = true;
+            try {
+                const response = await fetch('/run_report', { method: 'POST', body: formData });
+                const result = await response.json();
+                const resultDiv = document.getElementById('reportResult');
+                if (result.status === 'success') {
+                    resultDiv.innerHTML = 
+                        '<div class="result success">Report generated!<br>' +
+                        '<a href="' + result.output + '" target="_blank">' +
+                        '<button class="preview-btn">Preview Report</button></a></div>';
+                } else {
+                    resultDiv.innerHTML = '<div class="result error">Error: ' + result.output + '</div>';
+                }
+            } catch {
+                document.getElementById('reportResult').innerHTML = '<div class="result error">Network error</div>';
+            } finally {
+                button.textContent = originalText;
+                button.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

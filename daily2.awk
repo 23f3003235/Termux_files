@@ -34,7 +34,7 @@ END {
     printf "Grand Total: %d min (%.2f hours)\n", total_min, total_hr
     system("python3 plotg.py")
     system("am start -a android.intent.action.VIEW \
-    -d file:///storage/emulated/0/daily_activity_plot.png \
+    -d file:////data/data/com.termux/files/home/termux_files/reports/daily_activity_plot.png \
     -t image/png")
 }
 
