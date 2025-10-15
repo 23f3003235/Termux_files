@@ -1,0 +1,20 @@
+Category Tree Graph for Month/Year: 09/2025
+home maintenance
+   └─ home work (count: 1, sum of minutes: 90)
+
+BSDS
+   └─ ML (count: 8, sum of minutes: 220)
+   └─ BDM (count: 2, sum of minutes: 50)
+
+career
+   └─ app dev (count: 11, sum of minutes: 1270)
+
+new skill
+   └─ file transfer (count: 2, sum of minutes: 80)
+
+life
+   └─ tantric yoga (count: 3, sum of minutes: 65)
+
+oppe
+   └─ sc (count: 7, sum of minutes: 210)
+

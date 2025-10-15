@@ -1,4 +1,258 @@
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+import json
+import subprocess
+import cgi
+import os
+import pandas as pd
+from datetime import datetime
+import signal
+import sys
+import time
+import csv
 
+class LifeTrackerHandler(SimpleHTTPRequestHandler):
+    
+    def do_GET(self):
+        if self.path == '/':
+            self.path = '/index.html'
+        elif self.path == '/get_categories':
+            categories = self.get_categories()
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(categories).encode())
+            return
+        elif self.path == '/get_all_data':
+            self.get_all_data()
+            return
+        return SimpleHTTPRequestHandler.do_GET(self)
+    
+    def get_categories(self):
+        categories = []
+        try:
+            if os.path.exists("lifetracker.csv"):
+                df = pd.read_csv("lifetracker.csv", header=None)
+                if len(df.columns) >= 4:
+                    categories = df[3].unique().tolist()
+        except:
+            pass
+        return categories
+    
+    def get_all_data(self):
+        try:
+            if os.path.exists("lifetracker.csv"):
+                with open("lifetracker.csv", "r") as f:
+                    reader = csv.reader(f)
+                    data = list(reader)
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "status": "success",
+                    "data": data
+                }).encode())
+            else:
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "status": "error",
+                    "message": "CSV file not found"
+                }).encode())
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "error",
+                "message": str(e)
+            }).encode())
+    
+    def do_POST(self):
+        if self.path == '/add_entry':
+            form = cgi.FieldStorage(
+                fp=self.rfile,
+                headers=self.headers,
+                environ={'REQUEST_METHOD': 'POST'}
+            )
+            
+            date = form.getvalue('date')
+            activity = form.getvalue('activity')
+            minutes = form.getvalue('minutes')
+            category = form.getvalue('category')
+            
+            with open("lifetracker.csv", "a") as f:
+                f.write(f"{date},{activity},{minutes},{category}\n")
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "success"}).encode())
+            
+        elif self.path == '/run_report':
+            form = cgi.FieldStorage(
+                fp=self.rfile,
+                headers=self.headers,
+                environ={'REQUEST_METHOD': 'POST'}
+            )
+            
+            report_type = form.getvalue('report_type')
+            month = form.getvalue('month')
+            
+            scripts = {
+                'daily': './daily2.awk',
+                'category': './category2.awk', 
+                'activity': './activity2.awk'
+            }
+            
+            image_files = {
+                'daily': 'reports/daily_activity_plot.png',
+                'category': 'reports/category_plot.png',
+                'activity': 'reports/activity_checklist.png'
+            }
+            
+            if report_type in scripts:
+                try:
+                    # Run the script and capture both output and summary
+                    result = subprocess.run(
+                        [scripts[report_type], month], 
+                        capture_output=True, 
+                        text=True,
+                        timeout=30
+                    )
+                    
+                    # Filter out AM intent lines from summary
+                    summary_lines = []
+                    if result.stdout:
+                        for line in result.stdout.split('\n'):
+                            if not line.strip().startswith('am start'):
+                                summary_lines.append(line)
+                    clean_summary = '\n'.join(summary_lines)
+                    
+                    if result.returncode == 0:
+                        status = "success"
+                        image_path = image_files[report_type]
+                        if not os.path.exists(image_path):
+                            status = "error"
+                            output = "Report image not found"
+                        else:
+                            output = image_path
+                    else:
+                        status = "error"
+                        output = result.stderr
+                except subprocess.TimeoutExpired:
+                    status = "error"
+                    output = "Report generation timed out"
+                    clean_summary = ""
+                except Exception as e:
+                    status = "error"
+                    output = str(e)
+                    clean_summary = ""
+            else:
+                status = "error"
+                output = "Invalid report type"
+                clean_summary = ""
+                
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": status, 
+                "output": output,
+                "summary": clean_summary
+            }).encode())
+        
+        elif self.path == '/update_entry':
+            self.update_entry()
+        elif self.path == '/delete_entry':
+            self.delete_entry()
+    
+    def update_entry(self):
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
+        data = json.loads(post_data.decode())
+        
+        try:
+            index = data['index']
+            new_date = data['date']
+            new_activity = data['activity']
+            new_minutes = data['minutes']
+            new_category = data['category']
+            
+            with open("lifetracker.csv", "r") as f:
+                lines = f.readlines()
+            
+            if 0 <= index < len(lines):
+                lines[index] = f"{new_date},{new_activity},{new_minutes},{new_category}\n"
+                
+                with open("lifetracker.csv", "w") as f:
+                    f.writelines(lines)
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success"}).encode())
+            else:
+                self.send_response(400)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "status": "error", 
+                    "message": "Invalid index"
+                }).encode())
+                
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "error", 
+                "message": str(e)
+            }).encode())
+    
+    def delete_entry(self):
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
+        data = json.loads(post_data.decode())
+        
+        try:
+            index = data['index']
+            
+            with open("lifetracker.csv", "r") as f:
+                lines = f.readlines()
+            
+            if 0 <= index < len(lines):
+                # Remove the line at the specified index
+                del lines[index]
+                
+                with open("lifetracker.csv", "w") as f:
+                    f.writelines(lines)
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success"}).encode())
+            else:
+                self.send_response(400)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "status": "error", 
+                    "message": "Invalid index"
+                }).encode())
+                
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "error", 
+                "message": str(e)
+            }).encode())
+
+# HTML UI with all features
+html_content = """
 <!DOCTYPE html>
 <html>
 <head>
@@ -529,18 +783,8 @@
                     <option value="daily">Daily Time Utilization</option>
                     <option value="category">Category-wise Time</option>
                     <option value="activity">Activity Statistics</option>
-                    <option value="cattree">Category Tree Summary</option>
                 </select>
-                <div class="centered-controls">
-                    <div class="filter-group">
-                        <span class="filter-label">Month</span>
-                        <input type="number" id="month" placeholder="Month (1-12)" min="1" max="12" required>
-                    </div>
-                    <div class="filter-group">
-                        <span class="filter-label">Year</span>
-                        <input type="number" id="year" placeholder="Year" min="2000" max="2100" required>
-                    </div>
-                </div>
+                <input type="number" id="month" placeholder="Month (1-12)" min="1" max="12" required style="max-width: 600px;">
                 <button onclick="generateReport()" style="max-width: 600px;">Generate Report</button>
             </form>
             
@@ -601,14 +845,14 @@
             <div id="tableContainer" style="overflow-x: auto; max-height: 500px; overflow-y: auto;">
                 <!-- Search Prompt (shown by default) -->
                 <div id="searchPrompt">
-                    <div>🔍</div>
+                    <div>Rajesh Masila' Life Tracker</div>
                     <div>Search or filter to view data</div>
                     <div>Use the search box or date filters above to display entries</div>
                 </div>
                 
                 <!-- No Data Message (shown when no results found) -->
                 <div id="noDataMessage" style="display: none;">
-                    <div>📭</div>
+                    <div> </div>
                     <div>No matching entries found</div>
                     <div>Try different search terms or date range</div>
                 </div>
@@ -659,7 +903,6 @@
         document.addEventListener('DOMContentLoaded', function() {
             loadCategories();
             setToday();
-            setCurrentYear();
             // Don't load data automatically - wait for user action
             showSearchPrompt();
         });
@@ -668,13 +911,6 @@
             const today = new Date();
             const formattedDate = today.toISOString().split('T')[0];
             document.getElementById('dateInput').value = formattedDate;
-        }
-        
-        function setCurrentYear() {
-            const currentYear = new Date().getFullYear();
-            document.getElementById('year').value = currentYear;
-            // Update max year to current year + 10 for future flexibility
-            document.getElementById('year').max = currentYear + 10;
         }
         
         function formatDateForCSV(dateString) {
@@ -787,22 +1023,13 @@
         async function generateReport() {
             const reportType = document.getElementById('reportType').value;
             const month = document.getElementById('month').value;
-            const year = document.getElementById('year').value;
-            
             if (!month) {
                 alert('Please enter a month');
                 return;
             }
-            if (!year) {
-                alert('Please enter a year');
-                return;
-            }
-            
             const formData = new FormData();
             formData.append('report_type', reportType);
             formData.append('month', month);
-            formData.append('year', year);
-            
             const button = document.querySelector('button[onclick="generateReport()"]');
             const originalText = button.textContent;
             button.textContent = 'Generating...';
@@ -820,7 +1047,7 @@
                 
                 if (result.status === 'success') {
                     resultDiv.innerHTML = 
-                        '<div class="result success">Report generated successfully for ' + month + '/' + year + '!</div>' +
+                        '<div class="result success">Report generated successfully!</div>' +
                         '<div class="button-group">' +
                         '<a href="' + result.output + '" target="_blank">' +
                         '<button class="preview-btn">Preview Chart</button></a>';
@@ -828,8 +1055,7 @@
                     // Show summary button if summary exists
                     if (result.summary && result.summary.trim()) {
                         resultDiv.innerHTML += 
-                            '<button class="summary-btn" onclick="toggleSummary()">View Summary</button>' +
-                            '<button class="minimize-btn" onclick="minimizeSummary()">Minimize</button>';
+                            '<button class="summary-btn" onclick="toggleSummary()">View Summary</button>';
                         summaryContent.textContent = result.summary;
                         summarySection.style.display = 'block';
                     }
@@ -1183,3 +1409,25 @@
     </script>
 </body>
 </html>
+"""
+
+# Create reports folder and HTML
+os.makedirs("reports", exist_ok=True)
+with open("index.html", "w") as f:
+    f.write(html_content)
+
+def signal_handler(sig, frame):
+    print("\nServer stopped successfully")
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+
+print("Starting Life Tracker Web GUI...")
+print("Open your browser and go to: http://localhost:8000")
+print("Press Ctrl+C to stop the server")
+
+try:
+    httpd = HTTPServer(('0.0.0.0', 8000), LifeTrackerHandler)
+    httpd.serve_forever()
+except KeyboardInterrupt:
+    print("Server stopped")

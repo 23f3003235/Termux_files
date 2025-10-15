@@ -1,4 +1,261 @@
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+import json
+import subprocess
+import cgi
+import os
+import pandas as pd
+from datetime import datetime
+import signal
+import sys
+import time
+import csv
 
+class LifeTrackerHandler(SimpleHTTPRequestHandler):
+    
+    def do_GET(self):
+        if self.path == '/':
+            self.path = '/index.html'
+        elif self.path == '/get_categories':
+            categories = self.get_categories()
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(categories).encode())
+            return
+        elif self.path == '/get_all_data':
+            self.get_all_data()
+            return
+        return SimpleHTTPRequestHandler.do_GET(self)
+    
+    def get_categories(self):
+        categories = []
+        try:
+            if os.path.exists("lifetracker.csv"):
+                df = pd.read_csv("lifetracker.csv", header=None)
+                if len(df.columns) >= 4:
+                    categories = df[3].unique().tolist()
+        except:
+            pass
+        return categories
+    
+    def get_all_data(self):
+        try:
+            if os.path.exists("lifetracker.csv"):
+                with open("lifetracker.csv", "r") as f:
+                    reader = csv.reader(f)
+                    data = list(reader)
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "status": "success",
+                    "data": data
+                }).encode())
+            else:
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "status": "error",
+                    "message": "CSV file not found"
+                }).encode())
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "error",
+                "message": str(e)
+            }).encode())
+    
+    def do_POST(self):
+        if self.path == '/add_entry':
+            form = cgi.FieldStorage(
+                fp=self.rfile,
+                headers=self.headers,
+                environ={'REQUEST_METHOD': 'POST'}
+            )
+            
+            date = form.getvalue('date')
+            activity = form.getvalue('activity')
+            minutes = form.getvalue('minutes')
+            category = form.getvalue('category')
+            
+            with open("lifetracker.csv", "a") as f:
+                f.write(f"{date},{activity},{minutes},{category}\n")
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "success"}).encode())
+            
+        elif self.path == '/run_report':
+            form = cgi.FieldStorage(
+                fp=self.rfile,
+                headers=self.headers,
+                environ={'REQUEST_METHOD': 'POST'}
+            )
+            
+            report_type = form.getvalue('report_type')
+            month = form.getvalue('month')
+            year = form.getvalue('year')
+            
+            scripts = {
+                'daily': './daily2.awk',
+                'category': './category2.awk', 
+                'activity': './activity2.awk',
+                'cattree': './cattree.awk'
+            }
+            
+            image_files = {
+                'daily': 'reports/daily_activity_plot.png',
+                'category': 'reports/category_plot.png',
+                'activity': 'reports/activity_checklist.png',
+                'cattree': 'reports/cattree.png'
+            }
+            
+            if report_type in scripts:
+                try:
+                    # Run the script with both month and year parameters
+                    result = subprocess.run(
+                        [scripts[report_type], month, year], 
+                        capture_output=True, 
+                        text=True,
+                        timeout=30
+                    )
+                    
+                    # Filter out AM intent lines from summary
+                    summary_lines = []
+                    if result.stdout:
+                        for line in result.stdout.split('\n'):
+                            if not line.strip().startswith('am start'):
+                                summary_lines.append(line)
+                    clean_summary = '\n'.join(summary_lines)
+                    
+                    if result.returncode == 0:
+                        status = "success"
+                        image_path = image_files[report_type]
+                        if not os.path.exists(image_path):
+                            status = "error"
+                            output = "Report image not found"
+                        else:
+                            output = image_path
+                    else:
+                        status = "error"
+                        output = result.stderr
+                except subprocess.TimeoutExpired:
+                    status = "error"
+                    output = "Report generation timed out"
+                    clean_summary = ""
+                except Exception as e:
+                    status = "error"
+                    output = str(e)
+                    clean_summary = ""
+            else:
+                status = "error"
+                output = "Invalid report type"
+                clean_summary = ""
+                
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": status, 
+                "output": output,
+                "summary": clean_summary
+            }).encode())
+        
+        elif self.path == '/update_entry':
+            self.update_entry()
+        elif self.path == '/delete_entry':
+            self.delete_entry()
+    
+    def update_entry(self):
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
+        data = json.loads(post_data.decode())
+        
+        try:
+            index = data['index']
+            new_date = data['date']
+            new_activity = data['activity']
+            new_minutes = data['minutes']
+            new_category = data['category']
+            
+            with open("lifetracker.csv", "r") as f:
+                lines = f.readlines()
+            
+            if 0 <= index < len(lines):
+                lines[index] = f"{new_date},{new_activity},{new_minutes},{new_category}\n"
+                
+                with open("lifetracker.csv", "w") as f:
+                    f.writelines(lines)
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success"}).encode())
+            else:
+                self.send_response(400)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "status": "error", 
+                    "message": "Invalid index"
+                }).encode())
+                
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "error", 
+                "message": str(e)
+            }).encode())
+    
+    def delete_entry(self):
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
+        data = json.loads(post_data.decode())
+        
+        try:
+            index = data['index']
+            
+            with open("lifetracker.csv", "r") as f:
+                lines = f.readlines()
+            
+            if 0 <= index < len(lines):
+                # Remove the line at the specified index
+                del lines[index]
+                
+                with open("lifetracker.csv", "w") as f:
+                    f.writelines(lines)
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success"}).encode())
+            else:
+                self.send_response(400)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "status": "error", 
+                    "message": "Invalid index"
+                }).encode())
+                
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "error", 
+                "message": str(e)
+            }).encode())
+
+# HTML UI with all features
+html_content = """
 <!DOCTYPE html>
 <html>
 <head>
@@ -1183,3 +1440,25 @@
     </script>
 </body>
 </html>
+"""
+
+# Create reports folder and HTML
+os.makedirs("reports", exist_ok=True)
+with open("index.html", "w") as f:
+    f.write(html_content)
+
+def signal_handler(sig, frame):
+    print("\nServer stopped successfully")
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+
+print("Starting Life Tracker Web GUI...")
+print("Open your browser and go to: http://localhost:8000")
+print("Press Ctrl+C to stop the server")
+
+try:
+    httpd = HTTPServer(('0.0.0.0', 8000), LifeTrackerHandler)
+    httpd.serve_forever()
+except KeyboardInterrupt:
+    print("Server stopped")
