@@ -1,20 +1,24 @@
-Category Tree Graph for Month/Year: 09/2025
-home maintenance
-   └─ home work (count: 1, sum of minutes: 90)
+Category Tree Graph for Month/Year: 10/2025
+workshop
+   └─ azure cloud (count: 1, sum of minutes: 135)
 
-BSDS
-   └─ ML (count: 8, sum of minutes: 220)
-   └─ BDM (count: 2, sum of minutes: 50)
+home maintenance
+   └─ FF Outer area cleaning (count: 1, sum of minutes: 120)
+   └─ bed room cleaning (count: 1, sum of minutes: 45)
 
 career
-   └─ app dev (count: 11, sum of minutes: 1270)
+   └─ app dev (count: 4, sum of minutes: 420)
 
 new skill
-   └─ file transfer (count: 2, sum of minutes: 80)
+   └─ system code (count: 10, sum of minutes: 740)
+
+BSDS
+   └─ ML (count: 13, sum of minutes: 785)
+   └─ BDM (count: 7, sum of minutes: 240)
 
 life
-   └─ tantric yoga (count: 3, sum of minutes: 65)
+   └─ tantric yoga (count: 1, sum of minutes: 30)
 
 oppe
-   └─ sc (count: 7, sum of minutes: 210)
+   └─ sc (count: 3, sum of minutes: 155)
 
