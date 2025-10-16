@@ -744,53 +744,6 @@
             padding: 12px 20px;
         }
         
-        /* Notification Styles */
-        .notification-item {
-            background: white;
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: var(--radius);
-            border-left: 4px solid var(--primary-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .notification-time {
-            font-weight: bold;
-            color: var(--primary-color);
-            min-width: 80px;
-        }
-        
-        .notification-message {
-            flex: 1;
-            margin: 0 15px;
-        }
-        
-        .notification-controls {
-            background: var(--light-bg);
-            padding: 20px;
-            border-radius: var(--radius);
-            margin-bottom: 20px;
-        }
-        
-        .quick-reminders {
-            margin-top: 20px;
-        }
-        
-        .reminder-item {
-            background: white;
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: var(--radius);
-            border-left: 4px solid var(--secondary-color);
-        }
-        
-        .reminder-time {
-            font-weight: bold;
-            color: var(--secondary-color);
-        }
-        
         @media (max-width: 768px) {
             body {
                 padding: 15px;
@@ -899,16 +852,6 @@
             .global-controls button {
                 width: 100%;
             }
-            
-            .notification-item {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 10px;
-            }
-            
-            .notification-message {
-                margin: 0;
-            }
         }
         
         @media (max-width: 480px) {
@@ -969,61 +912,6 @@
         <div class="global-controls">
             <button onclick="expandAllSections()" style="background: var(--success-color);">Expand All Sections</button>
             <button onclick="collapseAllSections()" style="background: var(--gray-color);">Collapse All Sections</button>
-        </div>
-        
-        <!-- Smart Notifications Section -->
-        <div class="section" id="notificationsSection">
-            <div class="section-header" onclick="toggleSection('notificationsSection')">
-                <div class="section-title">
-                    <h2>🔔 Smart Notifications</h2>
-                </div>
-                <div class="section-actions">
-                    <button class="toggle-btn" onclick="event.stopPropagation(); setupNotifications()">Enable</button>
-                    <button class="toggle-btn" onclick="event.stopPropagation(); testNotification()">Test</button>
-                </div>
-            </div>
-            <div class="section-content">
-                <div class="notification-controls">
-                    <h3>Custom Reminders</h3>
-                    
-                    <form id="notificationForm" class="centered-form">
-                        <input type="text" id="notificationTitle" placeholder="Notification Title" value="Life Tracker Reminder" required style="max-width: 400px;">
-                        <textarea id="notificationMessage" placeholder="Enter your motivational message here..." required style="max-width: 400px; height: 80px; padding: 12px; font-family: inherit; resize: vertical;"></textarea>
-                        
-                        <div class="centered-controls">
-                            <div class="filter-group">
-                                <span class="filter-label">Time</span>
-                                <input type="time" id="notificationTime" value="09:00" required>
-                            </div>
-                            <div class="filter-group">
-                                <span class="filter-label">Type</span>
-                                <select id="notificationType" style="max-width: 200px;">
-                                    <option value="reminder">Daily Reminder</option>
-                                    <option value="motivation">Motivation</option>
-                                    <option value="goal">Goal Check</option>
-                                    <option value="custom">Custom</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="button-group">
-                            <button type="submit" style="background: var(--success-color);">Add Notification</button>
-                            <button type="button" onclick="addQuickReminder('morning')" class="toggle-btn">🌅 Morning</button>
-                            <button type="button" onclick="addQuickReminder('afternoon')" class="toggle-btn">🌞 Afternoon</button>
-                            <button type="button" onclick="addQuickReminder('evening')" class="toggle-btn">🌙 Evening</button>
-                        </div>
-                    </form>
-                </div>
-                
-                <div class="quick-reminders">
-                    <h3>Active Notifications</h3>
-                    <div id="notificationsList">
-                        <div class="result info">Loading notifications...</div>
-                    </div>
-                </div>
-                
-                <div id="notificationResult"></div>
-            </div>
         </div>
         
         <!-- Add New Entry Section -->
@@ -1336,7 +1224,6 @@
         let currentDisplayedData = [];
         let hasSearched = false;
         let goals = [];
-        let notifications = [];
         
         document.addEventListener('DOMContentLoaded', function() {
             loadCategories();
@@ -1345,8 +1232,6 @@
             showSearchPrompt();
             loadGoals();
             loadPerformanceData();
-            loadNotifications();
-            setupNotificationSystem();
             
             // Collapse all sections by default
             setTimeout(() => {
@@ -1374,240 +1259,7 @@
             });
         }
         
-        // ============================
-        // NOTIFICATION SYSTEM
-        // ============================
-        
-        function setupNotificationSystem() {
-            // Request notification permission
-            if ("Notification" in window) {
-                Notification.requestPermission().then(permission => {
-                    if (permission === "granted") {
-                        console.log("Notification permission granted");
-                        document.getElementById('notificationResult').innerHTML = 
-                            '<div class="result success">🔔 Notifications enabled! You will receive reminders.</div>';
-                    }
-                });
-            }
-            
-            // Schedule notification checks
-            setInterval(checkScheduledNotifications, 60000); // Check every minute
-        }
-        
-        function setupNotifications() {
-            if ("Notification" in window) {
-                Notification.requestPermission().then(permission => {
-                    const resultDiv = document.getElementById('notificationResult');
-                    if (permission === "granted") {
-                        resultDiv.innerHTML = '<div class="result success">🔔 Notifications enabled! You will receive reminders.</div>';
-                    } else {
-                        resultDiv.innerHTML = '<div class="result warning">🔕 Notifications blocked. You can enable them in browser settings.</div>';
-                    }
-                });
-            } else {
-                document.getElementById('notificationResult').innerHTML = 
-                    '<div class="result error">❌ This browser does not support notifications.</div>';
-            }
-        }
-        
-        function showBrowserNotification(title, message) {
-            if ("Notification" in window && Notification.permission === "granted") {
-                new Notification(title, {
-                    body: message,
-                    icon: '/favicon.ico',
-                    badge: '/favicon.ico',
-                    tag: 'lifetracker-reminder'
-                });
-            }
-            
-            // Also show in-page notification
-            showInPageNotification(title, message);
-        }
-        
-        function showInPageNotification(title, message) {
-            // Create notification element
-            const notification = document.createElement('div');
-            notification.className = 'result success';
-            notification.innerHTML = `
-                <strong>${title}</strong><br>
-                ${message}
-                <button onclick="this.parentElement.remove()" style="float: right; background: none; border: none; font-size: 16px; cursor: pointer;">×</button>
-            `;
-            notification.style.margin = '10px 0';
-            notification.style.animation = 'fadeIn 0.3s ease-in';
-            
-            document.getElementById('notificationResult').prepend(notification);
-            
-            // Auto-remove after 5 seconds
-            setTimeout(() => {
-                if (notification.parentElement) {
-                    notification.remove();
-                }
-            }, 5000);
-        }
-        
-        function testNotification() {
-            showBrowserNotification(
-                'Test Notification', 
-                'This is a test of the Life Tracker notification system!'
-            );
-            document.getElementById('notificationResult').innerHTML = 
-                '<div class="result success">Test notification sent!</div>';
-        }
-        
-        async function loadNotifications() {
-            try {
-                const response = await fetch('/get_notifications');
-                const result = await response.json();
-                
-                if (result.status === 'success') {
-                    notifications = result.notifications;
-                    displayNotifications();
-                }
-            } catch (error) {
-                console.error('Error loading notifications:', error);
-            }
-        }
-        
-        function displayNotifications() {
-            const container = document.getElementById('notificationsList');
-            
-            if (notifications.length === 0) {
-                container.innerHTML = '<div class="result info">No notifications set up yet. Add your first reminder above!</div>';
-                return;
-            }
-            
-            let html = '';
-            notifications.forEach(notification => {
-                html += `
-                    <div class="notification-item">
-                        <div class="notification-time">${notification.time}</div>
-                        <div class="notification-message">
-                            <strong>${notification.title}</strong><br>
-                            ${notification.message}
-                        </div>
-                        <button class="delete-btn-sm" onclick="deleteNotification('${notification.id}')">Delete</button>
-                    </div>
-                `;
-            });
-            
-            container.innerHTML = html;
-        }
-        
-        document.getElementById('notificationForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const title = document.getElementById('notificationTitle').value;
-            const message = document.getElementById('notificationMessage').value;
-            const time = document.getElementById('notificationTime').value;
-            const type = document.getElementById('notificationType').value;
-            
-            try {
-                const response = await fetch('/save_notification', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        title: title,
-                        message: message,
-                        time: time,
-                        type: type,
-                        enabled: true,
-                        repeat_daily: true
-                    })
-                });
-                
-                const result = await response.json();
-                if (result.status === 'success') {
-                    document.getElementById('notificationResult').innerHTML = 
-                        '<div class="result success">Notification saved successfully!</div>';
-                    document.getElementById('notificationForm').reset();
-                    loadNotifications();
-                } else {
-                    document.getElementById('notificationResult').innerHTML = 
-                        '<div class="result error">Error: ' + result.message + '</div>';
-                }
-            } catch (error) {
-                document.getElementById('notificationResult').innerHTML = 
-                    '<div class="result error">Network error: ' + error + '</div>';
-            }
-        });
-        
-        function addQuickReminder(type) {
-            const reminders = {
-                morning: {
-                    title: '🌅 Good Morning!',
-                    message: 'Time to plan your day! What activities will you focus on today?',
-                    time: '09:00'
-                },
-                afternoon: {
-                    title: '🌞 Afternoon Check-in',
-                    message: 'How is your day going? Remember to track your progress!',
-                    time: '14:00'
-                },
-                evening: {
-                    title: '🌙 Evening Reflection',
-                    message: 'Time to review your day! Log your activities and celebrate your achievements.',
-                    time: '20:00'
-                }
-            };
-            
-            const reminder = reminders[type];
-            if (reminder) {
-                document.getElementById('notificationTitle').value = reminder.title;
-                document.getElementById('notificationMessage').value = reminder.message;
-                document.getElementById('notificationTime').value = reminder.time;
-                document.getElementById('notificationType').value = 'motivation';
-                
-                // Auto-submit the form
-                document.getElementById('notificationForm').dispatchEvent(new Event('submit'));
-            }
-        }
-        
-        async function deleteNotification(id) {
-            if (confirm('Delete this notification?')) {
-                try {
-                    const response = await fetch('/delete_notification', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ id: id })
-                    });
-                    
-                    const result = await response.json();
-                    if (result.status === 'success') {
-                        loadNotifications();
-                        document.getElementById('notificationResult').innerHTML = 
-                            '<div class="result success">Notification deleted successfully!</div>';
-                    }
-                } catch (error) {
-                    document.getElementById('notificationResult').innerHTML = 
-                        '<div class="result error">Error deleting notification: ' + error + '</div>';
-                }
-            }
-        }
-        
-        function checkScheduledNotifications() {
-            const now = new Date();
-            const currentTime = now.getHours().toString().padStart(2, '0') + ':' + 
-                              now.getMinutes().toString().padStart(2, '0');
-            
-            notifications.forEach(notification => {
-                if (notification.enabled && notification.time === currentTime) {
-                    showBrowserNotification(notification.title, notification.message);
-                    
-                    // Mark as shown for today (in a real app, you'd track this)
-                    console.log(`Showing notification: ${notification.title}`);
-                }
-            });
-        }
-        
-        // All other existing functions remain exactly the same...
-        // [Previous JavaScript code for all other functionality remains unchanged]
-        
-        // All the original functions from your code...
+        // All original functionality restored
         function setToday() {
             const today = new Date();
             const formattedDate = today.toISOString().split('T')[0];

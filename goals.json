@@ -1,14 +1,14 @@
 [
   {
-    "id": "1760588756635",
+    "id": "1760626425136",
     "title": "Daily challenge",
     "type": "total_minutes",
     "category": "",
     "period": "daily",
-    "target": 250,
-    "created_at": "2025-10-16T09:55:56.635668",
-    "current_progress": 95.0,
-    "progress_percentage": 38.0,
-    "last_updated": "2025-10-16T13:58:02.607825"
+    "target": 200,
+    "created_at": "2025-10-16T20:23:45.137064",
+    "current_progress": 215.0,
+    "progress_percentage": 100,
+    "last_updated": "2025-10-16T23:47:37.877211"
   }
 ]
