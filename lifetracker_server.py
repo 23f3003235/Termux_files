@@ -1,4 +1,1169 @@
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+import json
+import subprocess
+import cgi
+import os
+import pandas as pd
+from datetime import datetime, timedelta
+import signal
+import sys
+import time
+import csv
+import shutil
+import io
+import math
 
+class LifeTrackerHandler(SimpleHTTPRequestHandler):
+    
+    def do_GET(self):
+        if self.path == '/':
+            self.path = '/index.html'
+        elif self.path == '/get_categories':
+            self.get_categories()
+            return
+        elif self.path == '/get_all_data':
+            self.get_all_data()
+            return
+        elif self.path.startswith('/export_data'):
+            self.export_data()
+            return
+        elif self.path == '/get_analytics':
+            self.get_analytics()
+            return
+        elif self.path == '/get_goals':
+            self.get_goals()
+            return
+        elif self.path == '/get_performance_data':
+            self.get_performance_data()
+            return
+        return SimpleHTTPRequestHandler.do_GET(self)
+    
+    def get_categories(self):
+        """Get all categories from the data file"""
+        categories = []
+        try:
+            if os.path.exists("lifetracker.csv"):
+                df = pd.read_csv("lifetracker.csv", header=None)
+                if len(df.columns) >= 4:
+                    categories = df[3].unique().tolist()
+        except Exception as e:
+            print(f"Error loading categories: {e}")
+        
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps(categories).encode())
+    
+    def get_all_data(self):
+        """Get all data from the CSV file"""
+        try:
+            if os.path.exists("lifetracker.csv"):
+                with open("lifetracker.csv", "r") as f:
+                    reader = csv.reader(f)
+                    data = list(reader)
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "status": "success",
+                    "data": data
+                }).encode())
+            else:
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "status": "error",
+                    "message": "CSV file not found"
+                }).encode())
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "error",
+                "message": str(e)
+            }).encode())
+    
+    def do_POST(self):
+        if self.path == '/add_entry':
+            self.add_entry()
+        elif self.path == '/run_report':
+            self.run_report()
+        elif self.path == '/update_entry':
+            self.update_entry()
+        elif self.path == '/delete_entry':
+            self.delete_entry()
+        elif self.path == '/create_backup':
+            self.create_backup()
+        elif self.path == '/validate_data':
+            self.validate_data()
+        elif self.path == '/get_advanced_analytics':
+            self.get_advanced_analytics()
+        elif self.path == '/save_goal':
+            self.save_goal()
+        elif self.path == '/delete_goal':
+            self.delete_goal()
+        elif self.path == '/update_goal_progress':
+            self.update_goal_progress()
+        else:
+            self.send_error(404, "Endpoint not found")
+    
+    def validate_date_format(self, date_str):
+        """Validate date format DD-MM-YYYY and check if it's a valid date"""
+        try:
+            parts = date_str.split('-')
+            if len(parts) != 3:
+                return False, "Date must be in DD-MM-YYYY format"
+            
+            day, month, year = parts
+            if len(day) != 2 or len(month) != 2 or len(year) != 4:
+                return False, "Date must be in DD-MM-YYYY format (2-digit day, 2-digit month, 4-digit year)"
+            
+            # Check if all parts are numeric
+            if not (day.isdigit() and month.isdigit() and year.isdigit()):
+                return False, "Date components must be numeric"
+            
+            day_int, month_int, year_int = int(day), int(month), int(year)
+            
+            # Check date validity
+            if month_int < 1 or month_int > 12:
+                return False, "Month must be between 01 and 12"
+            
+            if year_int < 2000 or year_int > 2100:
+                return False, "Year must be between 2000 and 2100"
+            
+            # Check day validity based on month
+            days_in_month = [31, 29 if year_int % 4 == 0 and (year_int % 100 != 0 or year_int % 400 == 0) else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+            if day_int < 1 or day_int > days_in_month[month_int - 1]:
+                return False, f"Invalid day for {month_int:02d}/{year_int}"
+            
+            return True, "Valid date"
+            
+        except Exception as e:
+            return False, f"Date validation error: {str(e)}"
+    
+    def validate_entry_data(self, date, activity, minutes, category):
+        """Validate all entry data before processing"""
+        errors = []
+        
+        # Validate date
+        is_valid_date, date_error = self.validate_date_format(date)
+        if not is_valid_date:
+            errors.append(date_error)
+        
+        # Validate activity
+        if not activity or not activity.strip():
+            errors.append("Activity cannot be empty")
+        elif len(activity.strip()) > 100:
+            errors.append("Activity name too long (max 100 characters)")
+        
+        # Validate minutes
+        try:
+            minutes_int = int(minutes)
+            if minutes_int <= 0:
+                errors.append("Minutes must be a positive number")
+            elif minutes_int > 1440:  # 24 hours in minutes
+                errors.append("Minutes cannot exceed 1440 (24 hours)")
+        except ValueError:
+            errors.append("Minutes must be a valid number")
+        
+        # Validate category
+        if not category or not category.strip():
+            errors.append("Category cannot be empty")
+        elif len(category.strip()) > 50:
+            errors.append("Category name too long (max 50 characters)")
+        
+        return errors
+    
+    def create_backup(self):
+        """Create a backup of the data file"""
+        try:
+            if not os.path.exists("lifetracker.csv"):
+                self.send_error_response("No data file found to backup")
+                return
+            
+            # Create backups directory if it doesn't exist
+            os.makedirs("backups", exist_ok=True)
+            
+            # Create timestamped backup
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_file = f"backups/lifetracker_backup_{timestamp}.csv"
+            shutil.copy2("lifetracker.csv", backup_file)
+            
+            # Clean up old backups (keep last 10)
+            self.cleanup_old_backups()
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "success",
+                "message": f"Backup created successfully: {backup_file}",
+                "backup_file": backup_file
+            }).encode())
+            
+        except Exception as e:
+            self.send_error_response(f"Backup failed: {str(e)}")
+    
+    def cleanup_old_backups(self, keep_count=10):
+        """Keep only the most recent backup files"""
+        try:
+            if not os.path.exists("backups"):
+                return
+            
+            backup_files = []
+            for file in os.listdir("backups"):
+                if file.startswith("lifetracker_backup_") and file.endswith(".csv"):
+                    file_path = os.path.join("backups", file)
+                    backup_files.append((file_path, os.path.getctime(file_path)))
+            
+            # Sort by creation time (newest first)
+            backup_files.sort(key=lambda x: x[1], reverse=True)
+            
+            # Remove old backups
+            for file_path, _ in backup_files[keep_count:]:
+                os.remove(file_path)
+                
+        except Exception as e:
+            print(f"Backup cleanup warning: {str(e)}")
+    
+    def add_entry(self):
+        """Enhanced add_entry with validation and backup"""
+        try:
+            form = cgi.FieldStorage(
+                fp=self.rfile,
+                headers=self.headers,
+                environ={'REQUEST_METHOD': 'POST'}
+            )
+            
+            date = form.getvalue('date')
+            activity = form.getvalue('activity')
+            minutes = form.getvalue('minutes')
+            category = form.getvalue('category')
+            
+            # Validate data before processing
+            validation_errors = self.validate_entry_data(date, activity, minutes, category)
+            if validation_errors:
+                self.send_error_response("Validation errors: " + "; ".join(validation_errors))
+                return
+            
+            # Create backup before making changes
+            backup_result = self.create_backup_silent()
+            
+            # Proceed with adding entry
+            with open("lifetracker.csv", "a") as f:
+                f.write(f"{date},{activity},{minutes},{category}\n")
+            
+            self.send_success_response("Entry added successfully")
+            
+        except Exception as e:
+            self.send_error_response(f"Error adding entry: {str(e)}")
+    
+    def create_backup_silent(self):
+        """Create backup without sending response (for internal use)"""
+        try:
+            if not os.path.exists("lifetracker.csv"):
+                return False
+            
+            os.makedirs("backups", exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_file = f"backups/lifetracker_backup_{timestamp}.csv"
+            shutil.copy2("lifetracker.csv", backup_file)
+            self.cleanup_old_backups()
+            return True
+        except:
+            return False
+    
+    def run_report(self):
+        """Enhanced report generation with validation"""
+        try:
+            form = cgi.FieldStorage(
+                fp=self.rfile,
+                headers=self.headers,
+                environ={'REQUEST_METHOD': 'POST'}
+            )
+            
+            report_type = form.getvalue('report_type')
+            month = form.getvalue('month')
+            year = form.getvalue('year')
+            
+            # Validate report parameters
+            if not report_type or report_type not in ['daily', 'category', 'activity', 'cattree']:
+                self.send_error_response("Invalid report type")
+                return
+            
+            try:
+                month_int = int(month)
+                if month_int < 1 or month_int > 12:
+                    self.send_error_response("Month must be between 1 and 12")
+                    return
+            except (ValueError, TypeError):
+                self.send_error_response("Month must be a valid number")
+                return
+            
+            try:
+                year_int = int(year)
+                if year_int < 2000 or year_int > 2100:
+                    self.send_error_response("Year must be between 2000 and 2100")
+                    return
+            except (ValueError, TypeError):
+                self.send_error_response("Year must be a valid number")
+                return
+            
+            scripts = {
+                'daily': './daily2.awk',
+                'category': './category2.awk', 
+                'activity': './activity2.awk',
+                'cattree': './cattree.awk'
+            }
+            
+            image_files = {
+                'daily': 'reports/daily_activity_plot.png',
+                'category': 'reports/category_plot.png',
+                'activity': 'reports/activity_checklist.png',
+                'cattree': 'reports/cattree.png'
+            }
+            
+            if report_type in scripts:
+                try:
+                    # Run the script with both month and year parameters
+                    result = subprocess.run(
+                        [scripts[report_type], month, year], 
+                        capture_output=True, 
+                        text=True,
+                        timeout=30
+                    )
+                    
+                    # Filter out AM intent lines from summary
+                    summary_lines = []
+                    if result.stdout:
+                        for line in result.stdout.split('\n'):
+                            if not line.strip().startswith('am start'):
+                                summary_lines.append(line)
+                    clean_summary = '\n'.join(summary_lines)
+                    
+                    if result.returncode == 0:
+                        status = "success"
+                        image_path = image_files[report_type]
+                        if not os.path.exists(image_path):
+                            status = "error"
+                            output = "Report image not found"
+                        else:
+                            output = image_path
+                    else:
+                        status = "error"
+                        output = result.stderr
+                except subprocess.TimeoutExpired:
+                    status = "error"
+                    output = "Report generation timed out"
+                    clean_summary = ""
+                except Exception as e:
+                    status = "error"
+                    output = str(e)
+                    clean_summary = ""
+            else:
+                status = "error"
+                output = "Invalid report type"
+                clean_summary = ""
+                
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": status, 
+                "output": output,
+                "summary": clean_summary
+            }).encode())
+            
+        except Exception as e:
+            self.send_error_response(f"Report generation error: {str(e)}")
+    
+    def update_entry(self):
+        """Enhanced update_entry with validation and backup"""
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
+        data = json.loads(post_data.decode())
+        
+        try:
+            index = data['index']
+            new_date = data['date']
+            new_activity = data['activity']
+            new_minutes = data['minutes']
+            new_category = data['category']
+            
+            # Validate data before processing
+            validation_errors = self.validate_entry_data(new_date, new_activity, new_minutes, new_category)
+            if validation_errors:
+                self.send_error_response("Validation errors: " + "; ".join(validation_errors))
+                return
+            
+            # Create backup before making changes
+            self.create_backup_silent()
+            
+            with open("lifetracker.csv", "r") as f:
+                lines = f.readlines()
+            
+            if 0 <= index < len(lines):
+                lines[index] = f"{new_date},{new_activity},{new_minutes},{new_category}\n"
+                
+                with open("lifetracker.csv", "w") as f:
+                    f.writelines(lines)
+                
+                self.send_success_response("Entry updated successfully")
+            else:
+                self.send_error_response("Invalid entry index")
+                
+        except Exception as e:
+            self.send_error_response(f"Error updating entry: {str(e)}")
+    
+    def delete_entry(self):
+        """Enhanced delete_entry with backup"""
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
+        data = json.loads(post_data.decode())
+        
+        try:
+            index = data['index']
+            
+            # Create backup before making changes
+            self.create_backup_silent()
+            
+            with open("lifetracker.csv", "r") as f:
+                lines = f.readlines()
+            
+            if 0 <= index < len(lines):
+                # Remove the line at the specified index
+                del lines[index]
+                
+                with open("lifetracker.csv", "w") as f:
+                    f.writelines(lines)
+                
+                self.send_success_response("Entry deleted successfully")
+            else:
+                self.send_error_response("Invalid entry index")
+                
+        except Exception as e:
+            self.send_error_response(f"Error deleting entry: {str(e)}")
+    
+    def validate_data(self):
+        """Validate entire dataset for integrity"""
+        try:
+            if not os.path.exists("lifetracker.csv"):
+                self.send_error_response("No data file found")
+                return
+            
+            issues = []
+            with open("lifetracker.csv", "r") as f:
+                for i, line in enumerate(f, 1):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    
+                    parts = line.split(',')
+                    if len(parts) != 4:
+                        issues.append(f"Line {i}: Incorrect number of fields (expected 4, got {len(parts)})")
+                        continue
+                    
+                    date, activity, minutes, category = parts
+                    
+                    # Validate each field
+                    is_valid_date, date_error = self.validate_date_format(date)
+                    if not is_valid_date:
+                        issues.append(f"Line {i}: {date_error}")
+                    
+                    if not activity.strip():
+                        issues.append(f"Line {i}: Empty activity")
+                    
+                    try:
+                        min_val = int(minutes)
+                        if min_val <= 0:
+                            issues.append(f"Line {i}: Invalid minutes value: {minutes}")
+                    except ValueError:
+                        issues.append(f"Line {i}: Minutes not a number: {minutes}")
+                    
+                    if not category.strip():
+                        issues.append(f"Line {i}: Empty category")
+            
+            if issues:
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "status": "warning",
+                    "message": f"Found {len(issues)} data integrity issues",
+                    "issues": issues
+                }).encode())
+            else:
+                self.send_success_response("Data validation passed - no issues found")
+                
+        except Exception as e:
+            self.send_error_response(f"Data validation error: {str(e)}")
+    
+    def export_data(self):
+        """Export data in various formats"""
+        try:
+            if not os.path.exists("lifetracker.csv"):
+                self.send_error_response("No data file found")
+                return
+            
+            # Parse query parameters
+            query_parts = self.path.split('?')
+            format_type = 'csv'
+            if len(query_parts) > 1:
+                params = query_parts[1].split('&')
+                for param in params:
+                    if '=' in param:
+                        key, value = param.split('=')
+                        if key == 'format':
+                            format_type = value
+            
+            # Read data
+            with open("lifetracker.csv", "r") as f:
+                reader = csv.reader(f)
+                data = list(reader)
+            
+            if format_type == 'json':
+                # Convert to JSON
+                json_data = []
+                for row in data:
+                    if len(row) >= 4:
+                        json_data.append({
+                            'date': row[0],
+                            'activity': row[1],
+                            'minutes': row[2],
+                            'category': row[3]
+                        })
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.send_header('Content-Disposition', 'attachment; filename="lifetracker_data.json"')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps(json_data, indent=2).encode())
+                
+            elif format_type == 'excel':
+                # Convert to Excel (simulated with CSV for now)
+                self.send_response(200)
+                self.send_header('Content-type', 'text/csv')
+                self.send_header('Content-Disposition', 'attachment; filename="lifetracker_data.csv"')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                
+                output = io.StringIO()
+                writer = csv.writer(output)
+                writer.writerow(['Date', 'Activity', 'Minutes', 'Category'])
+                for row in data:
+                    writer.writerow(row)
+                
+                self.wfile.write(output.getvalue().encode())
+                
+            else:  # CSV format
+                self.send_response(200)
+                self.send_header('Content-type', 'text/csv')
+                self.send_header('Content-Disposition', 'attachment; filename="lifetracker_data.csv"')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                
+                with open("lifetracker.csv", "r") as f:
+                    self.wfile.write(f.read().encode())
+                    
+        except Exception as e:
+            self.send_error_response(f"Export error: {str(e)}")
+    
+    def get_analytics(self):
+        """Get basic analytics data"""
+        try:
+            if not os.path.exists("lifetracker.csv"):
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "status": "error",
+                    "message": "No data file found"
+                }).encode())
+                return
+            
+            # Read data with proper error handling
+            data = []
+            with open("lifetracker.csv", "r") as f:
+                reader = csv.reader(f)
+                for row in reader:
+                    if len(row) >= 4:  # Ensure we have all required columns
+                        data.append(row)
+            
+            if not data:
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "status": "success",
+                    "analytics": {
+                        "total_entries": 0,
+                        "total_minutes": 0,
+                        "total_categories": 0,
+                        "total_activities": 0,
+                        "date_range": {"start": "N/A", "end": "N/A"},
+                        "top_categories": {},
+                        "top_activities": {},
+                        "recent_activity": {}
+                    }
+                }).encode())
+                return
+            
+            # Convert to DataFrame for analysis
+            df = pd.DataFrame(data, columns=['date', 'activity', 'minutes', 'category'])
+            
+            # Basic analytics
+            total_entries = len(df)
+            
+            # Handle minutes conversion safely
+            total_minutes = 0
+            try:
+                df['minutes'] = pd.to_numeric(df['minutes'], errors='coerce')
+                total_minutes = df['minutes'].sum()
+            except:
+                total_minutes = 0
+            
+            total_categories = df['category'].nunique()
+            total_activities = df['activity'].nunique()
+            
+            # Date range
+            date_range = {"start": "N/A", "end": "N/A"}
+            try:
+                df['date_obj'] = pd.to_datetime(df['date'], format='%d-%m-%Y', errors='coerce')
+                valid_dates = df[df['date_obj'].notna()]
+                if not valid_dates.empty:
+                    date_range = {
+                        'start': valid_dates['date_obj'].min().strftime('%Y-%m-%d'),
+                        'end': valid_dates['date_obj'].max().strftime('%Y-%m-%d')
+                    }
+            except:
+                pass
+            
+            # Top categories
+            top_categories = {}
+            try:
+                category_stats = df.groupby('category')['minutes'].sum().sort_values(ascending=False).head(10)
+                top_categories = category_stats.to_dict()
+            except:
+                pass
+            
+            # Top activities
+            top_activities = {}
+            try:
+                activity_stats = df.groupby('activity')['minutes'].sum().sort_values(ascending=False).head(10)
+                top_activities = activity_stats.to_dict()
+            except:
+                pass
+            
+            # Recent activity
+            recent_days_formatted = {}
+            try:
+                recent_days = df.groupby('date_obj')['minutes'].sum().sort_index(ascending=False).head(7)
+                recent_days_formatted = {k.strftime('%Y-%m-%d'): int(v) for k, v in recent_days.items()}
+            except:
+                pass
+            
+            analytics_data = {
+                "status": "success",
+                "analytics": {
+                    "total_entries": int(total_entries),
+                    "total_minutes": int(total_minutes),
+                    "total_categories": int(total_categories),
+                    "total_activities": int(total_activities),
+                    "date_range": date_range,
+                    "top_categories": top_categories,
+                    "top_activities": top_activities,
+                    "recent_activity": recent_days_formatted
+                }
+            }
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps(analytics_data).encode())
+            
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "error",
+                "message": f"Analytics error: {str(e)}"
+            }).encode())
+    
+    def get_advanced_analytics(self):
+        """Get advanced analytics with filters"""
+        try:
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            data = json.loads(post_data.decode())
+            
+            if not os.path.exists("lifetracker.csv"):
+                self.send_error_response("No data file found")
+                return
+            
+            # Read data
+            csv_data = []
+            with open("lifetracker.csv", "r") as f:
+                reader = csv.reader(f)
+                for row in reader:
+                    if len(row) >= 4:
+                        csv_data.append(row)
+            
+            if not csv_data:
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "status": "success",
+                    "message": "No data available",
+                    "analytics": {}
+                }).encode())
+                return
+            
+            df = pd.DataFrame(csv_data, columns=['date', 'activity', 'minutes', 'category'])
+            
+            # Convert data types safely
+            try:
+                df['minutes'] = pd.to_numeric(df['minutes'], errors='coerce')
+                df['date_obj'] = pd.to_datetime(df['date'], format='%d-%m-%Y', errors='coerce')
+            except:
+                pass
+            
+            # Apply filters
+            start_date = data.get('start_date')
+            end_date = data.get('end_date')
+            category_filter = data.get('category')
+            activity_filter = data.get('activity')
+            
+            filtered_df = df.copy()
+            
+            if start_date:
+                try:
+                    start_date_obj = pd.to_datetime(start_date)
+                    filtered_df = filtered_df[filtered_df['date_obj'] >= start_date_obj]
+                except:
+                    pass
+            
+            if end_date:
+                try:
+                    end_date_obj = pd.to_datetime(end_date)
+                    filtered_df = filtered_df[filtered_df['date_obj'] <= end_date_obj]
+                except:
+                    pass
+            
+            if category_filter:
+                filtered_df = filtered_df[filtered_df['category'].str.contains(category_filter, case=False, na=False)]
+            
+            if activity_filter:
+                filtered_df = filtered_df[filtered_df['activity'].str.contains(activity_filter, case=False, na=False)]
+            
+            # Advanced analytics
+            if len(filtered_df) == 0:
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "status": "success",
+                    "message": "No data matching filters",
+                    "analytics": {}
+                }).encode())
+                return
+            
+            # Time trends
+            daily_trends_formatted = {}
+            try:
+                daily_trends = filtered_df.groupby('date_obj')['minutes'].sum().sort_index().tail(30)
+                daily_trends_formatted = {k.strftime('%Y-%m-%d'): int(v) for k, v in daily_trends.items()}
+            except:
+                pass
+            
+            # Category distribution
+            category_distribution = {}
+            try:
+                cat_dist = filtered_df.groupby('category')['minutes'].sum().sort_values(ascending=False)
+                category_distribution = {k: int(v) for k, v in cat_dist.items()}
+            except:
+                pass
+            
+            # Activity patterns
+            activity_patterns = {}
+            try:
+                act_patterns = filtered_df.groupby('activity')['minutes'].sum().sort_values(ascending=False).head(20)
+                activity_patterns = {k: int(v) for k, v in act_patterns.items()}
+            except:
+                pass
+            
+            # Productivity metrics
+            total_days = 0
+            avg_daily_minutes = 0
+            max_daily_minutes = 0
+            
+            try:
+                total_days = filtered_df['date_obj'].nunique()
+                daily_stats = filtered_df.groupby('date_obj')['minutes'].sum()
+                avg_daily_minutes = daily_stats.mean()
+                max_daily_minutes = daily_stats.max()
+            except:
+                pass
+            
+            advanced_analytics = {
+                "status": "success",
+                "analytics": {
+                    "filtered_entries": int(len(filtered_df)),
+                    "filtered_minutes": int(filtered_df['minutes'].sum()),
+                    "daily_trends": daily_trends_formatted,
+                    "category_distribution": category_distribution,
+                    "activity_patterns": activity_patterns,
+                    "productivity_metrics": {
+                        "total_days": int(total_days),
+                        "avg_daily_minutes": round(float(avg_daily_minutes), 2),
+                        "max_daily_minutes": int(max_daily_minutes)
+                    }
+                }
+            }
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps(advanced_analytics).encode())
+            
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "error",
+                "message": f"Advanced analytics error: {str(e)}"
+            }).encode())
+    
+    def get_goals(self):
+        """Get all goals from the goals file"""
+        try:
+            goals = []
+            if os.path.exists("goals.json"):
+                with open("goals.json", "r") as f:
+                    goals = json.load(f)
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "success",
+                "goals": goals
+            }).encode())
+            
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "error",
+                "message": f"Error loading goals: {str(e)}"
+            }).encode())
+    
+    def save_goal(self):
+        """Save a new goal or update existing goal"""
+        try:
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            data = json.loads(post_data.decode())
+            
+            goals = []
+            if os.path.exists("goals.json"):
+                with open("goals.json", "r") as f:
+                    goals = json.load(f)
+            
+            # Add or update goal
+            goal_id = data.get('id')
+            if goal_id:
+                # Update existing goal
+                for i, goal in enumerate(goals):
+                    if goal.get('id') == goal_id:
+                        goals[i] = data
+                        break
+            else:
+                # Add new goal
+                data['id'] = str(int(datetime.now().timestamp() * 1000))
+                data['created_at'] = datetime.now().isoformat()
+                goals.append(data)
+            
+            # Save goals
+            with open("goals.json", "w") as f:
+                json.dump(goals, f, indent=2)
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "success",
+                "message": "Goal saved successfully",
+                "goal": data
+            }).encode())
+            
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "error",
+                "message": f"Error saving goal: {str(e)}"
+            }).encode())
+    
+    def delete_goal(self):
+        """Delete a goal"""
+        try:
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            data = json.loads(post_data.decode())
+            
+            goal_id = data.get('id')
+            
+            goals = []
+            if os.path.exists("goals.json"):
+                with open("goals.json", "r") as f:
+                    goals = json.load(f)
+            
+            # Remove goal
+            goals = [goal for goal in goals if goal.get('id') != goal_id]
+            
+            # Save updated goals
+            with open("goals.json", "w") as f:
+                json.dump(goals, f, indent=2)
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "success",
+                "message": "Goal deleted successfully"
+            }).encode())
+            
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "error",
+                "message": f"Error deleting goal: {str(e)}"
+            }).encode())
+    
+    def update_goal_progress(self):
+        """Update goal progress based on current data"""
+        try:
+            if not os.path.exists("lifetracker.csv") or not os.path.exists("goals.json"):
+                self.send_success_response("No data available for progress calculation")
+                return
+            
+            # Read goals
+            with open("goals.json", "r") as f:
+                goals = json.load(f)
+            
+            # Read tracking data with proper error handling
+            if not goals:
+                self.send_success_response("No goals to update")
+                return
+                
+            try:
+                df = pd.read_csv("lifetracker.csv", header=None, names=['date', 'activity', 'minutes', 'category'])
+                df['date_obj'] = pd.to_datetime(df['date'], format='%d-%m-%Y', errors='coerce')
+                df['minutes'] = pd.to_numeric(df['minutes'], errors='coerce')
+            except Exception as e:
+                self.send_error_response(f"Error reading data file: {str(e)}")
+                return
+            
+            updated_goals = []
+            for goal in goals:
+                goal_type = goal.get('type', 'category')
+                target = goal.get('target', 0)
+                category = goal.get('category', '')
+                period = goal.get('period', 'weekly')
+                
+                # Calculate progress based on goal type and period
+                progress = self.calculate_goal_progress(df, goal_type, target, category, period)
+                goal['current_progress'] = progress
+                goal['progress_percentage'] = min(100, (progress / target * 100) if target > 0 else 0)
+                goal['last_updated'] = datetime.now().isoformat()
+                
+                updated_goals.append(goal)
+            
+            # Save updated goals with progress
+            with open("goals.json", "w") as f:
+                json.dump(updated_goals, f, indent=2)
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "success",
+                "message": "Goal progress updated successfully",
+                "goals": updated_goals
+            }).encode())
+            
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "error",
+                "message": f"Error updating goal progress: {str(e)}"
+            }).encode())
+    
+    def calculate_goal_progress(self, df, goal_type, target, category, period):
+        """Calculate progress for a specific goal"""
+        try:
+            # Filter by period - fix the date filtering logic
+            now = datetime.now()
+            if period == 'daily':
+                start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            elif period == 'weekly':
+                start_date = now - timedelta(days=now.weekday())
+                start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            elif period == 'monthly':
+                start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            else:  # yearly
+                start_date = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+            
+            # Convert start_date to pandas Timestamp for proper comparison
+            start_date_ts = pd.Timestamp(start_date)
+            
+            # Filter data by date range - fix the filtering logic
+            period_data = df[df['date_obj'] >= start_date_ts]
+            
+            if goal_type == 'category':
+                # Category-based goal
+                if category:
+                    category_data = period_data[period_data['category'] == category]
+                    return float(category_data['minutes'].sum())
+            elif goal_type == 'total_minutes':
+                # Total minutes goal
+                return float(period_data['minutes'].sum())
+            elif goal_type == 'consistency':
+                # Consistency goal (days with activity)
+                return float(period_data['date_obj'].nunique())
+            
+            return 0.0
+        except Exception as e:
+            print(f"Error calculating goal progress: {e}")
+            return 0.0
+    
+    def get_performance_data(self):
+        """Get performance data for charts"""
+        try:
+            if not os.path.exists("lifetracker.csv"):
+                self.send_error_response("No data file found")
+                return
+            
+            # Read data
+            df = pd.read_csv("lifetracker.csv", header=None, names=['date', 'activity', 'minutes', 'category'])
+            df['date_obj'] = pd.to_datetime(df['date'], format='%d-%m-%Y', errors='coerce')
+            df['minutes'] = pd.to_numeric(df['minutes'], errors='coerce')
+            
+            # Last 30 days data for trends
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=30)
+            recent_data = df[(df['date_obj'] >= start_date) & (df['date_obj'] <= end_date)]
+            
+            # Daily trends
+            daily_trends = recent_data.groupby('date_obj')['minutes'].sum()
+            daily_labels = [date.strftime('%Y-%m-%d') for date in daily_trends.index]
+            daily_values = [int(val) for val in daily_trends.values]
+            
+            # Category distribution for pie chart
+            category_dist = df.groupby('category')['minutes'].sum().sort_values(ascending=False).head(8)
+            category_labels = list(category_dist.index)
+            category_values = [int(val) for val in category_dist.values]
+            
+            # Weekly performance
+            df['week'] = df['date_obj'].dt.to_period('W')
+            weekly_performance = df.groupby('week')['minutes'].sum().tail(12)
+            weekly_labels = [f"Week {i+1}" for i in range(len(weekly_performance))]
+            weekly_values = [int(val) for val in weekly_performance.values]
+            
+            performance_data = {
+                "status": "success",
+                "charts": {
+                    "daily_trends": {
+                        "labels": daily_labels,
+                        "values": daily_values
+                    },
+                    "category_distribution": {
+                        "labels": category_labels,
+                        "values": category_values
+                    },
+                    "weekly_performance": {
+                        "labels": weekly_labels,
+                        "values": weekly_values
+                    }
+                }
+            }
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps(performance_data).encode())
+            
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "error",
+                "message": f"Error getting performance data: {str(e)}"
+            }).encode())
+    
+    def send_success_response(self, message):
+        """Helper method for sending success responses"""
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps({
+            "status": "success",
+            "message": message
+        }).encode())
+    
+    def send_error_response(self, error_message):
+        """Helper method for sending error responses"""
+        self.send_response(200)  # Using 200 to handle errors in frontend
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps({
+            "status": "error",
+            "message": error_message
+        }).encode())
+
+# HTML UI with all functionality restored and improved collapsible sections
+html_content = """
 <!DOCTYPE html>
 <html>
 <head>
@@ -744,53 +1909,6 @@
             padding: 12px 20px;
         }
         
-        /* Notification Styles */
-        .notification-item {
-            background: white;
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: var(--radius);
-            border-left: 4px solid var(--primary-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .notification-time {
-            font-weight: bold;
-            color: var(--primary-color);
-            min-width: 80px;
-        }
-        
-        .notification-message {
-            flex: 1;
-            margin: 0 15px;
-        }
-        
-        .notification-controls {
-            background: var(--light-bg);
-            padding: 20px;
-            border-radius: var(--radius);
-            margin-bottom: 20px;
-        }
-        
-        .quick-reminders {
-            margin-top: 20px;
-        }
-        
-        .reminder-item {
-            background: white;
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: var(--radius);
-            border-left: 4px solid var(--secondary-color);
-        }
-        
-        .reminder-time {
-            font-weight: bold;
-            color: var(--secondary-color);
-        }
-        
         @media (max-width: 768px) {
             body {
                 padding: 15px;
@@ -899,16 +2017,6 @@
             .global-controls button {
                 width: 100%;
             }
-            
-            .notification-item {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 10px;
-            }
-            
-            .notification-message {
-                margin: 0;
-            }
         }
         
         @media (max-width: 480px) {
@@ -969,61 +2077,6 @@
         <div class="global-controls">
             <button onclick="expandAllSections()" style="background: var(--success-color);">Expand All Sections</button>
             <button onclick="collapseAllSections()" style="background: var(--gray-color);">Collapse All Sections</button>
-        </div>
-        
-        <!-- Smart Notifications Section -->
-        <div class="section" id="notificationsSection">
-            <div class="section-header" onclick="toggleSection('notificationsSection')">
-                <div class="section-title">
-                    <h2>🔔 Smart Notifications</h2>
-                </div>
-                <div class="section-actions">
-                    <button class="toggle-btn" onclick="event.stopPropagation(); setupNotifications()">Enable</button>
-                    <button class="toggle-btn" onclick="event.stopPropagation(); testNotification()">Test</button>
-                </div>
-            </div>
-            <div class="section-content">
-                <div class="notification-controls">
-                    <h3>Custom Reminders</h3>
-                    
-                    <form id="notificationForm" class="centered-form">
-                        <input type="text" id="notificationTitle" placeholder="Notification Title" value="Life Tracker Reminder" required style="max-width: 400px;">
-                        <textarea id="notificationMessage" placeholder="Enter your motivational message here..." required style="max-width: 400px; height: 80px; padding: 12px; font-family: inherit; resize: vertical;"></textarea>
-                        
-                        <div class="centered-controls">
-                            <div class="filter-group">
-                                <span class="filter-label">Time</span>
-                                <input type="time" id="notificationTime" value="09:00" required>
-                            </div>
-                            <div class="filter-group">
-                                <span class="filter-label">Type</span>
-                                <select id="notificationType" style="max-width: 200px;">
-                                    <option value="reminder">Daily Reminder</option>
-                                    <option value="motivation">Motivation</option>
-                                    <option value="goal">Goal Check</option>
-                                    <option value="custom">Custom</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="button-group">
-                            <button type="submit" style="background: var(--success-color);">Add Notification</button>
-                            <button type="button" onclick="addQuickReminder('morning')" class="toggle-btn">🌅 Morning</button>
-                            <button type="button" onclick="addQuickReminder('afternoon')" class="toggle-btn">🌞 Afternoon</button>
-                            <button type="button" onclick="addQuickReminder('evening')" class="toggle-btn">🌙 Evening</button>
-                        </div>
-                    </form>
-                </div>
-                
-                <div class="quick-reminders">
-                    <h3>Active Notifications</h3>
-                    <div id="notificationsList">
-                        <div class="result info">Loading notifications...</div>
-                    </div>
-                </div>
-                
-                <div id="notificationResult"></div>
-            </div>
         </div>
         
         <!-- Add New Entry Section -->
@@ -1336,7 +2389,6 @@
         let currentDisplayedData = [];
         let hasSearched = false;
         let goals = [];
-        let notifications = [];
         
         document.addEventListener('DOMContentLoaded', function() {
             loadCategories();
@@ -1345,8 +2397,6 @@
             showSearchPrompt();
             loadGoals();
             loadPerformanceData();
-            loadNotifications();
-            setupNotificationSystem();
             
             // Collapse all sections by default
             setTimeout(() => {
@@ -1374,240 +2424,7 @@
             });
         }
         
-        // ============================
-        // NOTIFICATION SYSTEM
-        // ============================
-        
-        function setupNotificationSystem() {
-            // Request notification permission
-            if ("Notification" in window) {
-                Notification.requestPermission().then(permission => {
-                    if (permission === "granted") {
-                        console.log("Notification permission granted");
-                        document.getElementById('notificationResult').innerHTML = 
-                            '<div class="result success">🔔 Notifications enabled! You will receive reminders.</div>';
-                    }
-                });
-            }
-            
-            // Schedule notification checks
-            setInterval(checkScheduledNotifications, 60000); // Check every minute
-        }
-        
-        function setupNotifications() {
-            if ("Notification" in window) {
-                Notification.requestPermission().then(permission => {
-                    const resultDiv = document.getElementById('notificationResult');
-                    if (permission === "granted") {
-                        resultDiv.innerHTML = '<div class="result success">🔔 Notifications enabled! You will receive reminders.</div>';
-                    } else {
-                        resultDiv.innerHTML = '<div class="result warning">🔕 Notifications blocked. You can enable them in browser settings.</div>';
-                    }
-                });
-            } else {
-                document.getElementById('notificationResult').innerHTML = 
-                    '<div class="result error">❌ This browser does not support notifications.</div>';
-            }
-        }
-        
-        function showBrowserNotification(title, message) {
-            if ("Notification" in window && Notification.permission === "granted") {
-                new Notification(title, {
-                    body: message,
-                    icon: '/favicon.ico',
-                    badge: '/favicon.ico',
-                    tag: 'lifetracker-reminder'
-                });
-            }
-            
-            // Also show in-page notification
-            showInPageNotification(title, message);
-        }
-        
-        function showInPageNotification(title, message) {
-            // Create notification element
-            const notification = document.createElement('div');
-            notification.className = 'result success';
-            notification.innerHTML = `
-                <strong>${title}</strong><br>
-                ${message}
-                <button onclick="this.parentElement.remove()" style="float: right; background: none; border: none; font-size: 16px; cursor: pointer;">×</button>
-            `;
-            notification.style.margin = '10px 0';
-            notification.style.animation = 'fadeIn 0.3s ease-in';
-            
-            document.getElementById('notificationResult').prepend(notification);
-            
-            // Auto-remove after 5 seconds
-            setTimeout(() => {
-                if (notification.parentElement) {
-                    notification.remove();
-                }
-            }, 5000);
-        }
-        
-        function testNotification() {
-            showBrowserNotification(
-                'Test Notification', 
-                'This is a test of the Life Tracker notification system!'
-            );
-            document.getElementById('notificationResult').innerHTML = 
-                '<div class="result success">Test notification sent!</div>';
-        }
-        
-        async function loadNotifications() {
-            try {
-                const response = await fetch('/get_notifications');
-                const result = await response.json();
-                
-                if (result.status === 'success') {
-                    notifications = result.notifications;
-                    displayNotifications();
-                }
-            } catch (error) {
-                console.error('Error loading notifications:', error);
-            }
-        }
-        
-        function displayNotifications() {
-            const container = document.getElementById('notificationsList');
-            
-            if (notifications.length === 0) {
-                container.innerHTML = '<div class="result info">No notifications set up yet. Add your first reminder above!</div>';
-                return;
-            }
-            
-            let html = '';
-            notifications.forEach(notification => {
-                html += `
-                    <div class="notification-item">
-                        <div class="notification-time">${notification.time}</div>
-                        <div class="notification-message">
-                            <strong>${notification.title}</strong><br>
-                            ${notification.message}
-                        </div>
-                        <button class="delete-btn-sm" onclick="deleteNotification('${notification.id}')">Delete</button>
-                    </div>
-                `;
-            });
-            
-            container.innerHTML = html;
-        }
-        
-        document.getElementById('notificationForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const title = document.getElementById('notificationTitle').value;
-            const message = document.getElementById('notificationMessage').value;
-            const time = document.getElementById('notificationTime').value;
-            const type = document.getElementById('notificationType').value;
-            
-            try {
-                const response = await fetch('/save_notification', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        title: title,
-                        message: message,
-                        time: time,
-                        type: type,
-                        enabled: true,
-                        repeat_daily: true
-                    })
-                });
-                
-                const result = await response.json();
-                if (result.status === 'success') {
-                    document.getElementById('notificationResult').innerHTML = 
-                        '<div class="result success">Notification saved successfully!</div>';
-                    document.getElementById('notificationForm').reset();
-                    loadNotifications();
-                } else {
-                    document.getElementById('notificationResult').innerHTML = 
-                        '<div class="result error">Error: ' + result.message + '</div>';
-                }
-            } catch (error) {
-                document.getElementById('notificationResult').innerHTML = 
-                    '<div class="result error">Network error: ' + error + '</div>';
-            }
-        });
-        
-        function addQuickReminder(type) {
-            const reminders = {
-                morning: {
-                    title: '🌅 Good Morning!',
-                    message: 'Time to plan your day! What activities will you focus on today?',
-                    time: '09:00'
-                },
-                afternoon: {
-                    title: '🌞 Afternoon Check-in',
-                    message: 'How is your day going? Remember to track your progress!',
-                    time: '14:00'
-                },
-                evening: {
-                    title: '🌙 Evening Reflection',
-                    message: 'Time to review your day! Log your activities and celebrate your achievements.',
-                    time: '20:00'
-                }
-            };
-            
-            const reminder = reminders[type];
-            if (reminder) {
-                document.getElementById('notificationTitle').value = reminder.title;
-                document.getElementById('notificationMessage').value = reminder.message;
-                document.getElementById('notificationTime').value = reminder.time;
-                document.getElementById('notificationType').value = 'motivation';
-                
-                // Auto-submit the form
-                document.getElementById('notificationForm').dispatchEvent(new Event('submit'));
-            }
-        }
-        
-        async function deleteNotification(id) {
-            if (confirm('Delete this notification?')) {
-                try {
-                    const response = await fetch('/delete_notification', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ id: id })
-                    });
-                    
-                    const result = await response.json();
-                    if (result.status === 'success') {
-                        loadNotifications();
-                        document.getElementById('notificationResult').innerHTML = 
-                            '<div class="result success">Notification deleted successfully!</div>';
-                    }
-                } catch (error) {
-                    document.getElementById('notificationResult').innerHTML = 
-                        '<div class="result error">Error deleting notification: ' + error + '</div>';
-                }
-            }
-        }
-        
-        function checkScheduledNotifications() {
-            const now = new Date();
-            const currentTime = now.getHours().toString().padStart(2, '0') + ':' + 
-                              now.getMinutes().toString().padStart(2, '0');
-            
-            notifications.forEach(notification => {
-                if (notification.enabled && notification.time === currentTime) {
-                    showBrowserNotification(notification.title, notification.message);
-                    
-                    // Mark as shown for today (in a real app, you'd track this)
-                    console.log(`Showing notification: ${notification.title}`);
-                }
-            });
-        }
-        
-        // All other existing functions remain exactly the same...
-        // [Previous JavaScript code for all other functionality remains unchanged]
-        
-        // All the original functions from your code...
+        // All original functionality restored
         function setToday() {
             const today = new Date();
             const formattedDate = today.toISOString().split('T')[0];
@@ -2641,3 +3458,34 @@
     </script>
 </body>
 </html>
+"""
+
+# Create necessary directories and files
+os.makedirs("reports", exist_ok=True)
+os.makedirs("backups", exist_ok=True)
+
+# Create goals file if it doesn't exist
+if not os.path.exists("goals.json"):
+    with open("goals.json", "w") as f:
+        json.dump([], f)
+
+with open("index.html", "w") as f:
+    f.write(html_content)
+
+def signal_handler(sig, frame):
+    print("\nServer stopped successfully")
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+
+print("Starting Life Tracker Web GUI...")
+print("Open your browser and go to: http://localhost:8000")
+print("Press Ctrl+C to stop the server")
+print("All functionality restored: Add Data, Search, Reports, Analytics")
+print("Improved: Global expand/collapse controls at top, no arrow icons")
+
+try:
+    httpd = HTTPServer(('0.0.0.0', 8000), LifeTrackerHandler)
+    httpd.serve_forever()
+except KeyboardInterrupt:
+    print("Server stopped")

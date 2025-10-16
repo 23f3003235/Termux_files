@@ -1,0 +1,210 @@
+def get_goals(self):
+    """Get all goals from the goals file"""
+    try:
+        goals = []
+        if os.path.exists("goals.json"):
+            with open("goals.json", "r") as f:
+                content = f.read().strip()
+                if content:  # Only parse if file is not empty
+                    goals = json.loads(content)
+        
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps({
+            "status": "success",
+            "goals": goals
+        }).encode())
+        
+    except Exception as e:
+        print(f"Error loading goals: {e}")
+        # Return empty goals list if there's an error
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps({
+            "status": "success",
+            "goals": []
+        }).encode())
+
+def save_goal(self):
+    """Save a new goal or update existing goal"""
+    try:
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
+        data = json.loads(post_data.decode())
+        
+        goals = []
+        if os.path.exists("goals.json"):
+            try:
+                with open("goals.json", "r") as f:
+                    content = f.read().strip()
+                    if content:
+                        goals = json.loads(content)
+            except json.JSONDecodeError:
+                # If file is corrupted, start with empty goals
+                goals = []
+        
+        # Add or update goal
+        goal_id = data.get('id')
+        if goal_id:
+            # Update existing goal
+            for i, goal in enumerate(goals):
+                if goal.get('id') == goal_id:
+                    goals[i] = data
+                    break
+        else:
+            # Add new goal
+            data['id'] = str(int(datetime.now().timestamp() * 1000))
+            data['created_at'] = datetime.now().isoformat()
+            data['current_progress'] = 0
+            data['progress_percentage'] = 0
+            goals.append(data)
+        
+        # Save goals
+        with open("goals.json", "w") as f:
+            json.dump(goals, f, indent=2)
+        
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps({
+            "status": "success",
+            "message": "Goal saved successfully",
+            "goal": data
+        }).encode())
+        
+    except Exception as e:
+        self.send_response(500)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps({
+            "status": "error",
+            "message": f"Error saving goal: {str(e)}"
+        }).encode())
+
+def update_goal_progress(self):
+    """Update goal progress based on current data"""
+    try:
+        if not os.path.exists("lifetracker.csv"):
+            self.send_success_response("No tracking data available")
+            return
+        
+        # Read goals with error handling
+        goals = []
+        if os.path.exists("goals.json"):
+            try:
+                with open("goals.json", "r") as f:
+                    content = f.read().strip()
+                    if content:
+                        goals = json.loads(content)
+            except json.JSONDecodeError as e:
+                self.send_error_response(f"Corrupted goals file: {str(e)}")
+                return
+        
+        if not goals:
+            self.send_success_response("No goals to update")
+            return
+            
+        # Read tracking data
+        try:
+            df = pd.read_csv("lifetracker.csv", header=None, names=['date', 'activity', 'minutes', 'category'])
+            df['date_obj'] = pd.to_datetime(df['date'], format='%d-%m-%Y', errors='coerce')
+            df['minutes'] = pd.to_numeric(df['minutes'], errors='coerce')
+            # Remove rows with invalid dates or minutes
+            df = df[df['date_obj'].notna() & df['minutes'].notna()]
+        except Exception as e:
+            self.send_error_response(f"Error reading tracking data: {str(e)}")
+            return
+        
+        updated_goals = []
+        for goal in goals:
+            try:
+                goal_type = goal.get('type', 'category')
+                target = float(goal.get('target', 0))
+                category = goal.get('category', '')
+                period = goal.get('period', 'weekly')
+                
+                # Calculate progress based on goal type and period
+                progress = self.calculate_goal_progress(df, goal_type, target, category, period)
+                goal['current_progress'] = float(progress)
+                goal['progress_percentage'] = min(100, (progress / target * 100) if target > 0 else 0)
+                goal['last_updated'] = datetime.now().isoformat()
+                
+                updated_goals.append(goal)
+            except Exception as e:
+                print(f"Error updating goal {goal.get('id', 'unknown')}: {e}")
+                # Keep the goal as is if there's an error updating it
+                updated_goals.append(goal)
+        
+        # Save updated goals with progress
+        with open("goals.json", "w") as f:
+            json.dump(updated_goals, f, indent=2)
+        
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps({
+            "status": "success",
+            "message": "Goal progress updated successfully",
+            "goals": updated_goals
+        }).encode())
+        
+    except Exception as e:
+        self.send_response(500)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps({
+            "status": "error",
+            "message": f"Error updating goal progress: {str(e)}"
+        }).encode())
+
+def calculate_goal_progress(self, df, goal_type, target, category, period):
+    """Calculate progress for a specific goal"""
+    try:
+        if df.empty:
+            return 0.0
+            
+        # Filter by period
+        now = datetime.now()
+        if period == 'daily':
+            start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        elif period == 'weekly':
+            start_date = now - timedelta(days=now.weekday())
+            start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        elif period == 'monthly':
+            start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        else:  # yearly
+            start_date = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        
+        # Convert start_date to pandas Timestamp for proper comparison
+        start_date_ts = pd.Timestamp(start_date)
+        
+        # Filter data by date range
+        period_data = df[df['date_obj'] >= start_date_ts]
+        
+        if period_data.empty:
+            return 0.0
+            
+        if goal_type == 'category':
+            # Category-based goal
+            if category:
+                category_data = period_data[period_data['category'] == category]
+                return float(category_data['minutes'].sum())
+        elif goal_type == 'total_minutes':
+            # Total minutes goal
+            return float(period_data['minutes'].sum())
+        elif goal_type == 'consistency':
+            # Consistency goal (days with activity)
+            return float(period_data['date_obj'].nunique())
+        
+        return 0.0
+    except Exception as e:
+        print(f"Error calculating goal progress: {e}")
+        return 0.0
