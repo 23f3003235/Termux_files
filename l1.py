@@ -1,3 +1,4 @@
+
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import json
 import subprocess
@@ -1304,7 +1305,7 @@ class LifeTrackerHandler(SimpleHTTPRequestHandler):
             self.send_error_response(f"Performance data error: {str(e)}")
 
 # -------------------------
-# HTML UI (index.html) - updated with Reminders & Motivation UI
+# HTML UI (index.html) - updated with improved mobile layout and collapse functionality
 # -------------------------
 html_content = r"""
 <!DOCTYPE html>
@@ -1313,7 +1314,6 @@ html_content = r"""
     <title>Life Tracker</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        /* Keep the styling you had; add small styles for reminders/motivation controls */
         :root {
             --primary-color: #007AFF;
             --primary-dark: #0056CC;
@@ -1338,16 +1338,90 @@ html_content = r"""
             border-radius: var(--radius);
         }
         h1 { text-align: center; color: #1D1D1F; margin-bottom: 12px; }
-        .section { background: var(--card-bg); padding: 18px; border-radius: 10px; margin: 18px 0; }
+        .section { 
+            background: var(--card-bg); 
+            padding: 18px; 
+            border-radius: 10px; 
+            margin: 18px 0; 
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+        .section.collapsed {
+            max-height: 70px;
+            padding: 15px 18px;
+        }
+        .section-content {
+            transition: all 0.3s ease;
+        }
+        .section.collapsed .section-content {
+            display: none;
+        }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            padding-bottom: 12px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid rgba(0,0,0,0.1);
+        }
+        .section-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #1D1D1F;
+        }
+        .collapse-btn {
+            background: var(--gray-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 12px;
+        }
         .centered-controls { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
-        input, select, button { padding: 12px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.08); }
-        button { background: var(--primary-color); color: white; border: none; cursor: pointer; }
+        input, select, button { 
+            padding: 12px; 
+            border-radius: 8px; 
+            border: 1px solid rgba(0,0,0,0.08); 
+            font-size: 16px;
+        }
+        button { 
+            background: var(--primary-color); 
+            color: white; 
+            border: none; 
+            cursor: pointer; 
+            transition: background 0.3s;
+        }
+        button:hover { background: var(--primary-dark); }
         .button-muted { background: #6c757d; }
+        .button-muted:hover { background: #5a6268; }
         .small { padding:8px 10px; font-size:14px; }
         .list { margin-top:12px; }
-        .list-item { padding:10px; border-radius:8px; background:white; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; }
-        .list-actions button { margin-left:8px; }
-        .result { margin-top:10px; padding:12px; border-radius:8px; background:white; }
+        .list-item { 
+            padding:10px; 
+            border-radius:8px; 
+            background:white; 
+            margin-bottom:8px; 
+            display:flex; 
+            justify-content:space-between; 
+            align-items:center;
+            flex-wrap: wrap;
+        }
+        .list-actions { 
+            display: flex; 
+            gap: 8px; 
+            margin-top: 8px;
+            width: 100%;
+        }
+        .list-actions button { margin-left:0; }
+        .result { 
+            margin-top:10px; 
+            padding:12px; 
+            border-radius:8px; 
+            background:white; 
+            border-left: 4px solid var(--primary-color);
+        }
         .notification-card { 
             background: white; 
             padding: 16px; 
@@ -1411,63 +1485,164 @@ html_content = r"""
             color: #666;
             margin-bottom: 12px;
         }
+        .button-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+        .button-row button {
+            flex: 1;
+            min-width: 120px;
+        }
+        .form-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+        .form-row input, .form-row select {
+            flex: 1;
+            min-width: 150px;
+        }
+        .mobile-full {
+            width: 100%;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            .section {
+                padding: 15px;
+                margin: 12px 0;
+            }
+            .section.collapsed {
+                padding: 12px 15px;
+                max-height: 60px;
+            }
+            .form-row {
+                flex-direction: column;
+            }
+            .form-row input, .form-row select {
+                min-width: 100%;
+            }
+            .button-row {
+                flex-direction: column;
+            }
+            .button-row button {
+                min-width: 100%;
+            }
+            .list-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .list-actions {
+                justify-content: flex-start;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 12px;
+            }
+            .section {
+                padding: 12px;
+            }
+            .section.collapsed {
+                padding: 10px 12px;
+                max-height: 55px;
+            }
+            h1 {
+                font-size: 1.5em;
+            }
+            .section-title {
+                font-size: 1.1em;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Life Tracker</h1>
 
-        <!-- Notification Settings Card -->
-        <div class="section" id="notificationSettingsSection">
-            <h2>Notification Settings</h2>
-            <div class="notification-card">
-                <div class="card-header">
-                    <div class="card-title">Enable Notifications</div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="notificationToggle">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-                <div class="card-description">
-                    Turn on/off all notifications including reminders and motivational messages. 
-                    When disabled, no notifications will be sent to your device.
-                </div>
-                <button onclick="saveNotificationSettings()" class="small">Save Settings</button>
+        <!-- Global Controls -->
+        <div class="section">
+            <div class="section-header">
+                <div class="section-title">Quick Actions</div>
             </div>
-            <div id="notificationResult" class="result" style="display:none;"></div>
+            <div class="section-content">
+                <div class="button-row">
+                    <button onclick="expandAllSections()">Expand All</button>
+                    <button onclick="collapseAllSections()" class="button-muted">Collapse All</button>
+                </div>
+            </div>
         </div>
 
-        <!-- ... existing sections (Add Entry, Reports, Analytics, Goals, etc.) should be present here -->
-        <!-- For brevity the full UI from your previous file is still written to index.html by the Python server. -->
-        <!-- Below we add Reminders & Motivation sections (new). -->
+        <!-- Notification Settings Card -->
+        <div class="section" id="notificationSettingsSection">
+            <div class="section-header" onclick="toggleSection('notificationSettingsSection')">
+                <div class="section-title">Notification Settings</div>
+                <button class="collapse-btn">Toggle</button>
+            </div>
+            <div class="section-content">
+                <div class="notification-card">
+                    <div class="card-header">
+                        <div class="card-title">Enable Notifications</div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="notificationToggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="card-description">
+                        Turn on/off all notifications including reminders and motivational messages. 
+                        When disabled, no notifications will be sent to your device.
+                    </div>
+                    <button onclick="saveNotificationSettings()" class="small mobile-full">Save Settings</button>
+                </div>
+                <div id="notificationResult" class="result" style="display:none;"></div>
+            </div>
+        </div>
 
+        <!-- Reminders Section -->
         <div class="section" id="remindersSection">
-            <h2>Reminders</h2>
-            <div>
-                <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
-                    <input type="text" id="remTitle" placeholder="Reminder title" style="flex:2;">
-                    <input type="date" id="remDate" placeholder="Date (for once)">
-                    <input type="time" id="remTime" value="09:00">
-                    <select id="remRecurrence">
+            <div class="section-header" onclick="toggleSection('remindersSection')">
+                <div class="section-title">Reminders</div>
+                <button class="collapse-btn">Toggle</button>
+            </div>
+            <div class="section-content">
+                <div class="form-row">
+                    <input type="text" id="remTitle" placeholder="Reminder title" class="mobile-full">
+                    <input type="date" id="remDate" placeholder="Date (for once)" class="mobile-full">
+                    <input type="time" id="remTime" value="09:00" class="mobile-full">
+                </div>
+                <div class="form-row">
+                    <select id="remRecurrence" class="mobile-full">
                         <option value="once">Once</option>
                         <option value="daily">Daily</option>
                         <option value="weekly">Weekly</option>
                     </select>
-                    <select id="remWeekday" style="display:none;">
-                        <option value="0">Mon</option>
-                        <option value="1">Tue</option>
-                        <option value="2">Wed</option>
-                        <option value="3">Thu</option>
-                        <option value="4">Fri</option>
-                        <option value="5">Sat</option>
-                        <option value="6">Sun</option>
+                    <select id="remWeekday" style="display:none;" class="mobile-full">
+                        <option value="0">Monday</option>
+                        <option value="1">Tuesday</option>
+                        <option value="2">Wednesday</option>
+                        <option value="3">Thursday</option>
+                        <option value="4">Friday</option>
+                        <option value="5">Saturday</option>
+                        <option value="6">Sunday</option>
                     </select>
                 </div>
-                <div style="display:flex; gap:10px; margin-bottom:12px;">
-                    <input type="text" id="remMessage" placeholder="Message" style="flex:1;">
-                    <button onclick="saveReminder()" class="small">Save Reminder</button>
-                    <button onclick="loadReminders()" class="small button-muted">Refresh</button>
-                    <button onclick="testNotification()" class="small">Test Notification</button>
+                <div class="form-row">
+                    <input type="text" id="remMessage" placeholder="Message" class="mobile-full">
+                </div>
+                
+                <div class="button-row">
+                    <button onclick="saveReminder()" class="small mobile-full">Save Reminder</button>
+                    <button onclick="loadReminders()" class="small button-muted mobile-full">Refresh List</button>
+                    <button onclick="testNotification()" class="small mobile-full">Test Notification</button>
                 </div>
 
                 <div id="remindersList" class="list"></div>
@@ -1475,27 +1650,112 @@ html_content = r"""
             </div>
         </div>
 
+        <!-- Motivation Section -->
         <div class="section" id="motivationSection">
-            <h2>Motivational Notifications</h2>
-            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
-                <label><input type="checkbox" id="motEnable"> Enable</label>
-                <input type="number" id="motInterval" min="10" value="240" style="width:120px;"> minutes
-                <button onclick="saveMotivationSettings()" class="small">Save Settings</button>
+            <div class="section-header" onclick="toggleSection('motivationSection')">
+                <div class="section-title">Motivational Notifications</div>
+                <button class="collapse-btn">Toggle</button>
             </div>
+            <div class="section-content">
+                <div class="form-row">
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="motEnable">
+                        Enable Motivational Messages
+                    </label>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span>Interval:</span>
+                        <input type="number" id="motInterval" min="10" value="240" style="width: 80px;">
+                        <span>minutes</span>
+                    </div>
+                </div>
 
-            <div style="margin-top:8px;">
-                <textarea id="motMessages" rows="4" style="width:100%;" placeholder="One message per line"></textarea>
+                <div style="margin-top:8px;">
+                    <textarea id="motMessages" rows="4" style="width:100%; padding: 10px;" placeholder="Enter motivational messages, one per line"></textarea>
+                </div>
+                
+                <div class="button-row">
+                    <button onclick="saveMotivationSettings()" class="small mobile-full">Save Settings</button>
+                    <button onclick="loadMotivationSettings()" class="small button-muted mobile-full">Load Settings</button>
+                    <button onclick="sendImmediateMotivation()" class="small mobile-full">Send Now</button>
+                </div>
+                
+                <div id="motivationResult" class="result" style="display:none;"></div>
             </div>
-            <div style="margin-top:10px;">
-                <button onclick="loadMotivationSettings()" class="small button-muted">Load Settings</button>
-                <button onclick="sendImmediateMotivation()" class="small">Send Now</button>
+        </div>
+
+        <!-- Add other existing sections here with the same collapse structure -->
+        <!-- Add New Entry Section -->
+        <div class="section" id="addEntrySection">
+            <div class="section-header" onclick="toggleSection('addEntrySection')">
+                <div class="section-title">Add New Entry</div>
+                <button class="collapse-btn">Toggle</button>
             </div>
-            <div id="motivationResult" class="result" style="display:none;"></div>
+            <div class="section-content">
+                <!-- Your existing add entry form content -->
+            </div>
+        </div>
+
+        <!-- Generate Reports Section -->
+        <div class="section" id="reportsSection">
+            <div class="section-header" onclick="toggleSection('reportsSection')">
+                <div class="section-title">Generate Reports</div>
+                <button class="collapse-btn">Toggle</button>
+            </div>
+            <div class="section-content">
+                <!-- Your existing reports content -->
+            </div>
+        </div>
+
+        <!-- Analytics Dashboard Section -->
+        <div class="section" id="analyticsSection">
+            <div class="section-header" onclick="toggleSection('analyticsSection')">
+                <div class="section-title">Analytics Dashboard</div>
+                <button class="collapse-btn">Toggle</button>
+            </div>
+            <div class="section-content">
+                <!-- Your existing analytics content -->
+            </div>
+        </div>
+
+        <!-- Goals System Section -->
+        <div class="section" id="goalsSection">
+            <div class="section-header" onclick="toggleSection('goalsSection')">
+                <div class="section-title">Goals System</div>
+                <button class="collapse-btn">Toggle</button>
+            </div>
+            <div class="section-content">
+                <!-- Your existing goals content -->
+            </div>
         </div>
 
     </div>
 
 <script>
+    // Section collapse functionality
+    function toggleSection(sectionId) {
+        const section = document.getElementById(sectionId);
+        section.classList.toggle('collapsed');
+    }
+
+    function expandAllSections() {
+        document.querySelectorAll('.section.collapsed').forEach(section => {
+            section.classList.remove('collapsed');
+        });
+    }
+
+    function collapseAllSections() {
+        document.querySelectorAll('.section:not(.collapsed)').forEach(section => {
+            section.classList.add('collapsed');
+        });
+    }
+
+    // Auto-collapse all sections on load
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(() => {
+            collapseAllSections();
+        }, 100);
+    });
+
     // Notification Settings Functions
     async function loadNotificationSettings() {
         try {
@@ -1543,7 +1803,7 @@ html_content = r"""
                     el.innerHTML = `
                         <div style="flex:1;">
                             <div><strong>${r.title || '(no title)'}</strong> ${r.recurrence === 'once' && r.date ? ('on ' + r.date) : ''}</div>
-                            <div style="font-size:13px; color:#666;">${r.time || ''} • ${r.recurrence || ''}${r.weekday !== undefined ? ' • weekday:' + r.weekday : ''}</div>
+                            <div style="font-size:13px; color:#666;">${r.time || ''} • ${r.recurrence || ''}${r.weekday !== undefined ? ' • ' + ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][r.weekday] : ''}</div>
                             <div style="font-size:14px; margin-top:6px;">${r.message || ''}</div>
                         </div>
                         <div class="list-actions">
@@ -1562,7 +1822,12 @@ html_content = r"""
     document.getElementById('remRecurrence').addEventListener('change', function() {
         const val = this.value;
         const weekday = document.getElementById('remWeekday');
-        if (val === 'weekly') weekday.style.display = 'inline-block'; else weekday.style.display = 'none';
+        if (val === 'weekly') {
+            weekday.style.display = 'block';
+            weekday.classList.add('mobile-full');
+        } else {
+            weekday.style.display = 'none';
+        }
     });
 
     async function saveReminder(){
@@ -1588,9 +1853,17 @@ html_content = r"""
             res.style.display = 'block';
             if (j.status === 'success') {
                 res.textContent = j.message;
+                res.style.backgroundColor = '#d4edda';
+                res.style.color = '#155724';
                 loadReminders();
+                // Clear form
+                document.getElementById('remTitle').value = '';
+                document.getElementById('remDate').value = '';
+                document.getElementById('remMessage').value = '';
             } else {
                 res.textContent = j.message || 'Failed';
+                res.style.backgroundColor = '#f8d7da';
+                res.style.color = '#721c24';
             }
             setTimeout(()=>res.style.display='none', 4000);
         } catch (e) {
@@ -1626,58 +1899,15 @@ html_content = r"""
                 document.getElementById('remTime').value = r.time || '09:00';
                 document.getElementById('remRecurrence').value = r.recurrence || 'once';
                 if (r.recurrence === 'weekly') {
-                    document.getElementById('remWeekday').style.display = 'inline-block';
+                    document.getElementById('remWeekday').style.display = 'block';
+                    document.getElementById('remWeekday').classList.add('mobile-full');
                     document.getElementById('remWeekday').value = r.weekday || 0;
                 } else {
                     document.getElementById('remWeekday').style.display = 'none';
                 }
                 document.getElementById('remMessage').value = r.message || '';
-                // Put id into a temp attribute so saveReminder can include it (we will set a hidden field)
                 document.getElementById('remindersList').setAttribute('data-edit-id', id);
-                // Save action: send id with payload
-                // We'll override saveReminder to include id if present
-                // (Simple approach: update function to check attribute when saving)
             }
-        } catch (e) { console.error(e); }
-    }
-
-    // Modify saveReminder to include id if present in list attribute
-    const originalSaveReminder = saveReminder;
-    async function saveReminder(){
-        const list = document.getElementById('remindersList');
-        const editId = list.getAttribute('data-edit-id');
-        const title = document.getElementById('remTitle').value;
-        const date = document.getElementById('remDate').value;
-        const time = document.getElementById('remTime').value;
-        const recurrence = document.getElementById('remRecurrence').value;
-        const weekday = document.getElementById('remWeekday').value;
-        const message = document.getElementById('remMessage').value;
-        const payload = { title, date, time, recurrence, message };
-        if (recurrence === 'weekly') payload.weekday = parseInt(weekday);
-        if (editId) {
-            payload.id = editId;
-            list.removeAttribute('data-edit-id');
-        }
-        try {
-            const resp = await fetch('/save_reminder', {
-                method: 'POST',
-                body: JSON.stringify(payload)
-            });
-            const j = await resp.json();
-            const res = document.getElementById('remindersResult');
-            res.style.display = 'block';
-            if (j.status === 'success') {
-                res.textContent = j.message;
-                // clear inputs
-                document.getElementById('remTitle').value = '';
-                document.getElementById('remDate').value = '';
-                document.getElementById('remTime').value = '09:00';
-                document.getElementById('remMessage').value = '';
-                loadReminders();
-            } else {
-                res.textContent = j.message || 'Failed';
-            }
-            setTimeout(()=>res.style.display='none', 3500);
         } catch (e) { console.error(e); }
     }
 
@@ -1692,7 +1922,9 @@ html_content = r"""
             const j = await resp.json();
             const res = document.getElementById('remindersResult');
             res.style.display = 'block';
-            res.textContent = j.message || (j.status === 'success' ? 'Sent' : 'Failed');
+            res.textContent = j.message || (j.status === 'success' ? 'Test notification sent' : 'Failed to send');
+            res.style.backgroundColor = j.status === 'success' ? '#d4edda' : '#f8d7da';
+            res.style.color = j.status === 'success' ? '#155724' : '#721c24';
             setTimeout(()=>res.style.display='none', 3500);
         } catch (e) { console.error(e); }
     }
@@ -1724,7 +1956,9 @@ html_content = r"""
             const j = await resp.json();
             const res = document.getElementById('motivationResult');
             res.style.display = 'block';
-            res.textContent = j.message || (j.status === 'success' ? 'Saved' : 'Failed');
+            res.textContent = j.message || (j.status === 'success' ? 'Settings saved' : 'Failed to save');
+            res.style.backgroundColor = j.status === 'success' ? '#d4edda' : '#f8d7da';
+            res.style.color = j.status === 'success' ? '#155724' : '#721c24';
             setTimeout(()=>res.style.display='none', 3000);
         } catch (e) { console.error(e); }
     }
@@ -1732,7 +1966,7 @@ html_content = r"""
     async function sendImmediateMotivation(){
         const messages_raw = document.getElementById('motMessages').value || '';
         const messages = messages_raw.split('\n').map(s=>s.trim()).filter(Boolean);
-        const msg = messages.length ? messages[0] : 'Keep going';
+        const msg = messages.length ? messages[0] : 'Keep going! You are doing great!';
         try {
             const resp = await fetch('/trigger_test_notification', {
                 method: 'POST',
@@ -1741,7 +1975,9 @@ html_content = r"""
             const j = await resp.json();
             const res = document.getElementById('motivationResult');
             res.style.display = 'block';
-            res.textContent = j.message || (j.status === 'success' ? 'Sent' : 'Failed');
+            res.textContent = j.message || (j.status === 'success' ? 'Motivation sent' : 'Failed to send');
+            res.style.backgroundColor = j.status === 'success' ? '#d4edda' : '#f8d7da';
+            res.style.color = j.status === 'success' ? '#155724' : '#721c24';
             setTimeout(()=>res.style.display='none', 3000);
         } catch (e) { console.error(e); }
     }

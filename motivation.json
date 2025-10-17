@@ -1,0 +1,9 @@
+{
+  "enabled": true,
+  "interval_minutes": 240,
+  "messages": [
+    "Achieve regular goals"
+  ],
+  "last_sent": "2025-10-17T17:47:54.217979",
+  "last_index": 2
+}

@@ -1,14 +1,22 @@
 [
   {
-    "id": "1760626425136",
+    "id": "1760687163431",
+    "title": "Fc",
+    "type": "category",
+    "category": "BSDS",
+    "period": "daily",
+    "target": 60,
+    "created_at": "2025-10-17T13:16:03.431932",
+    "current_progress": 0,
+    "progress_percentage": 0,
+    "last_updated": "2025-10-17T13:16:26.404489"
+  },
+  {
+    "id": "1760687183802",
     "title": "Daily challenge",
     "type": "total_minutes",
     "category": "",
     "period": "daily",
     "target": 200,
-    "created_at": "2025-10-16T20:23:45.137064",
-    "current_progress": 215.0,
-    "progress_percentage": 100,
-    "last_updated": "2025-10-16T23:47:37.877211"
-  }
-]
+    "created_at": "2025-10-17T13:16:23.802342",
+    "current_progress": 

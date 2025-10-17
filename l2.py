@@ -1,4 +1,455 @@
 
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+import json
+import subprocess
+import cgi
+import os
+import pandas as pd
+from datetime import datetime, timedelta
+import signal
+import sys
+import time
+import csv
+import shutil
+import io
+import math
+import threading
+import uuid
+
+# -------------------------
+# Helper functions (global)
+# -------------------------
+
+REMINDERS_FILE = "reminders.json"
+MOTIVATION_FILE = "motivation.json"
+NOTIFICATION_SETTINGS_FILE = "notification_settings.json"
+REMINDER_CHECK_INTERVAL = 30  # seconds
+
+
+def load_json_file(path, default):
+    try:
+        if os.path.exists(path):
+            with open(path, "r") as f:
+                content = f.read().strip()
+                if content:
+                    return json.loads(content)
+        return default
+    except Exception:
+        return default
+
+
+def save_json_file(path, data):
+    try:
+        with open(path, "w") as f:
+            json.dump(data, f, indent=2)
+        return True
+    except Exception as e:
+        print(f"Failed to save {path}: {e}")
+        return False
+
+
+def send_notification(title, text):
+    """
+    Try to send a notification using termux-notification, else notify-send, else print.
+    """
+    # Check if notifications are enabled
+    settings = load_json_file(NOTIFICATION_SETTINGS_FILE, {"enabled": True})
+    if not settings.get("enabled", True):
+        print(f"Notifications disabled - would send: {title}: {text}")
+        return False
+        
+    try:
+        # Termux notification
+        cmd = ["termux-notification", "--title", title, "--content", text]
+        subprocess.run(cmd, capture_output=True, timeout=8)
+        return True
+    except Exception:
+        try:
+            # Linux notify-send (common on desktops)
+            cmd = ["notify-send", title, text]
+            subprocess.run(cmd, capture_output=True, timeout=8)
+            return True
+        except Exception:
+            # Fallback: print (server log)
+            print(f"NOTIFICATION - {title}: {text}")
+            return False
+
+
+def parse_date_time(date_str, time_str):
+    """
+    Parse date in YYYY-MM-DD and time in HH:MM and return a datetime.
+    """
+    try:
+        dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+        return dt
+    except Exception:
+        return None
+
+
+def next_weekly_run(from_dt, weekday_target, hour_minute):
+    """
+    Compute next datetime for weekly recurrence.
+    weekday_target: 0=Monday .. 6=Sunday (as Python weekday)
+    hour_minute: "HH:MM"
+    """
+    try:
+        h, m = map(int, hour_minute.split(":"))
+        # start from midnight of current day (keep time)
+        base = from_dt.replace(hour=h, minute=m, second=0, microsecond=0)
+        days_ahead = (weekday_target - base.weekday() + 7) % 7
+        if days_ahead == 0 and base <= from_dt:
+            days_ahead = 7
+        return base + timedelta(days=days_ahead)
+    except Exception:
+        return None
+
+
+def get_next_occurrence(reminder):
+    """
+    Compute next occurrence datetime for a reminder dict.
+    reminder keys: id, title, message, date (YYYY-MM-DD) or empty, time (HH:MM), recurrence (once/daily/weekly),
+    weekday (0..6) for weekly, last_sent (iso) optional.
+    Returns a datetime or None if not computable.
+    """
+    now = datetime.now()
+    recurrence = reminder.get("recurrence", "once")
+    time_str = reminder.get("time", "09:00")
+    if recurrence == "once":
+        date_str = reminder.get("date")
+        if not date_str:
+            return None
+        dt = parse_date_time(date_str, time_str)
+        return dt
+    elif recurrence == "daily":
+        # next today at time if still in future, else tomorrow
+        try:
+            h, m = map(int, time_str.split(":"))
+            candidate = now.replace(hour=h, minute=m, second=0, microsecond=0)
+            if candidate <= now:
+                candidate += timedelta(days=1)
+            return candidate
+        except Exception:
+            return None
+    elif recurrence == "weekly":
+        # if weekday provided, compute next weekly occurrence
+        weekday = reminder.get("weekday")
+        if weekday is None:
+            return None
+        try:
+            weekday = int(weekday)
+            return next_weekly_run(now, weekday, time_str)
+        except Exception:
+            return None
+    else:
+        return None
+
+
+def should_send_reminder(reminder):
+    """
+    Determine if reminder should be sent now.
+    Uses last_sent to avoid repeats within 60 seconds.
+    """
+    try:
+        next_dt = get_next_occurrence(reminder)
+        if not next_dt:
+            return False
+        now = datetime.now()
+        # Allow small window: send if next_dt <= now < next_dt + 60s
+        if next_dt <= now <= (next_dt + timedelta(seconds=60)):
+            last_sent = reminder.get("last_sent")
+            if last_sent:
+                try:
+                    last_dt = datetime.fromisoformat(last_sent)
+                    # if already sent within the last minute, skip
+                    if (now - last_dt).total_seconds() < 60:
+                        return False
+                except Exception:
+                    pass
+            return True
+        return False
+    except Exception:
+        return False
+
+
+def mark_reminder_sent(reminder):
+    reminder["last_sent"] = datetime.now().isoformat()
+
+
+def reminders_loop_stop_flag():
+    # Small helper to check if server stopped: file-based sentinel not used here.
+    return False
+
+
+def reminders_background_loop():
+    """
+    Background thread: loops and checks reminders and motivation triggers.
+    """
+    while True:
+        try:
+            reminders = load_json_file(REMINDERS_FILE, [])
+            changed = False
+            for r in reminders:
+                try:
+                    if should_send_reminder(r):
+                        title = r.get("title", "Reminder")
+                        message = r.get("message", "")
+                        send_notification(title, message)
+                        mark_reminder_sent(r)
+                        changed = True
+                        # For 'once' reminders, mark as sent (we keep it but set sent=True to avoid repetition)
+                        if r.get("recurrence", "once") == "once":
+                            r["sent"] = True
+                except Exception as e:
+                    print(f"Error handling reminder {r.get('id')}: {e}")
+            if changed:
+                save_json_file(REMINDERS_FILE, reminders)
+        except Exception as e:
+            print("Reminders loop error:", e)
+
+        # Motivation engine
+        try:
+            config = load_json_file(MOTIVATION_FILE, {"enabled": False, "interval_minutes": 240, "messages": [], "last_sent": None})
+            if config.get("enabled"):
+                last = config.get("last_sent")
+                interval_min = int(config.get("interval_minutes", 240) or 240)
+                now = datetime.now()
+                send_now = False
+                if last:
+                    try:
+                        last_dt = datetime.fromisoformat(last)
+                        if (now - last_dt).total_seconds() >= interval_min * 60:
+                            send_now = True
+                    except Exception:
+                        send_now = True
+                else:
+                    send_now = True
+                if send_now:
+                    msgs = config.get("messages", [])
+                    if msgs:
+                        # Pick next message in rotation
+                        idx = config.get("last_index", 0)
+                        message = msgs[idx % len(msgs)]
+                        title = "Motivation"
+                        send_notification(title, message)
+                        config["last_sent"] = now.isoformat()
+                        config["last_index"] = idx + 1
+                        save_json_file(MOTIVATION_FILE, config)
+        except Exception as e:
+            print("Motivation loop error:", e)
+
+        time.sleep(REMINDER_CHECK_INTERVAL)
+
+
+# start background thread
+bg_thread = threading.Thread(target=reminders_background_loop, daemon=True)
+bg_thread.start()
+
+# -------------------------
+# HTTP Handler (main)
+# -------------------------
+
+class LifeTrackerHandler(SimpleHTTPRequestHandler):
+    
+    def do_GET(self):
+        if self.path == '/':
+            self.path = '/index.html'
+        elif self.path == '/get_reminders':
+            self.get_reminders()
+            return
+        elif self.path == '/get_motivation_settings':
+            self.get_motivation_settings()
+            return
+        elif self.path == '/get_notification_settings':
+            self.get_notification_settings()
+            return
+        return SimpleHTTPRequestHandler.do_GET(self)
+    
+    def do_POST(self):
+        # New endpoints for reminders and motivation
+        if self.path == '/save_reminder':
+            self.save_reminder()
+        elif self.path == '/delete_reminder':
+            self.delete_reminder()
+        elif self.path == '/save_motivation_settings':
+            self.save_motivation_settings()
+        elif self.path == '/trigger_test_notification':
+            self.trigger_test_notification()
+        elif self.path == '/save_notification_settings':
+            self.save_notification_settings()
+        else:
+            self.send_error(404, "Endpoint not found")
+    
+    # -----------------------
+    # Reminder & Motivation handlers
+    # -----------------------
+    
+    def get_reminders(self):
+        try:
+            reminders = load_json_file(REMINDERS_FILE, [])
+            # Return reminders JSON
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "success", "reminders": reminders}).encode())
+        except Exception as e:
+            self.send_error_response(f"Failed to load reminders: {e}")
+    
+    def save_reminder(self):
+        """
+        POST expects JSON body with fields:
+        id (optional) - to update existing
+        title
+        message
+        date YYYY-MM-DD (for once) - optional for recurring
+        time HH:MM
+        recurrence: once/daily/weekly
+        weekday: 0-6 if weekly (optional)
+        """
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            data = json.loads(post_data.decode())
+            
+            reminders = load_json_file(REMINDERS_FILE, [])
+            
+            rid = data.get('id')
+            if rid:
+                # update existing
+                found = False
+                for i, r in enumerate(reminders):
+                    if r.get('id') == rid:
+                        reminders[i].update(data)
+                        reminders[i].pop('sent', None)  # reset sent flag if changed
+                        found = True
+                        break
+                if not found:
+                    reminders.append(data)
+            else:
+                data['id'] = str(uuid.uuid4())
+                data.setdefault('time', '09:00')
+                data.setdefault('recurrence', 'once')
+                data['created_at'] = datetime.now().isoformat()
+                reminders.append(data)
+            
+            save_json_file(REMINDERS_FILE, reminders)
+            self.send_success_response("Reminder saved successfully")
+        except Exception as e:
+            self.send_error_response(f"Error saving reminder: {e}")
+    
+    def delete_reminder(self):
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            data = json.loads(post_data.decode())
+            rid = data.get('id')
+            if not rid:
+                self.send_error_response("Missing reminder id")
+                return
+            reminders = load_json_file(REMINDERS_FILE, [])
+            reminders = [r for r in reminders if r.get('id') != rid]
+            save_json_file(REMINDERS_FILE, reminders)
+            self.send_success_response("Reminder deleted")
+        except Exception as e:
+            self.send_error_response(f"Error deleting reminder: {e}")
+    
+    def get_motivation_settings(self):
+        try:
+            config = load_json_file(MOTIVATION_FILE, {"enabled": False, "interval_minutes": 240, "messages": []})
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "success", "config": config}).encode())
+        except Exception as e:
+            self.send_error_response(f"Failed to load motivation settings: {e}")
+    
+    def save_motivation_settings(self):
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            data = json.loads(post_data.decode())
+            # Expected: enabled (bool), interval_minutes (int), messages (list of strings)
+            cfg = {
+                "enabled": bool(data.get("enabled", False)),
+                "interval_minutes": int(data.get("interval_minutes", 240) or 240),
+                "messages": data.get("messages", []),
+                "last_sent": None,
+                "last_index": 0
+            }
+            save_json_file(MOTIVATION_FILE, cfg)
+            self.send_success_response("Motivation settings saved")
+        except Exception as e:
+            self.send_error_response(f"Error saving motivation settings: {e}")
+    
+    def trigger_test_notification(self):
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            data = json.loads(post_data.decode())
+            title = data.get('title', 'Test Notification')
+            message = data.get('message', 'This is a test')
+            ok = send_notification(title, message)
+            if ok:
+                self.send_success_response("Test notification sent")
+            else:
+                self.send_error_response("Notification command not available; check Termux or system tools")
+        except Exception as e:
+            self.send_error_response(f"Error sending test notification: {e}")
+    
+    def get_notification_settings(self):
+        try:
+            settings = load_json_file(NOTIFICATION_SETTINGS_FILE, {"enabled": True})
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "success", "settings": settings}).encode())
+        except Exception as e:
+            self.send_error_response(f"Failed to load notification settings: {e}")
+    
+    def save_notification_settings(self):
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            data = json.loads(post_data.decode())
+            settings = {
+                "enabled": bool(data.get("enabled", True))
+            }
+            save_json_file(NOTIFICATION_SETTINGS_FILE, settings)
+            self.send_success_response("Notification settings saved")
+        except Exception as e:
+            self.send_error_response(f"Error saving notification settings: {e}")
+    
+    # -----------------------
+    # Utility response helpers
+    # -----------------------
+    def send_success_response(self, message):
+        """Helper method for sending success responses"""
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps({
+            "status": "success",
+            "message": message
+        }).encode())
+    
+    def send_error_response(self, error_message):
+        """Helper method for sending error responses"""
+        self.send_response(200)  # Using 200 to handle errors in frontend
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps({
+            "status": "error",
+            "message": error_message
+        }).encode())
+
+# -------------------------
+# HTML UI - Only Notification, Reminders, and Motivation sections
+# -------------------------
+html_content = r"""
 <!DOCTYPE html>
 <html>
 <head>
@@ -640,3 +1091,31 @@
 </script>
 </body>
 </html>
+"""
+
+# Save the index.html
+with open("index.html", "w", encoding="utf-8") as f:
+    f.write(html_content)
+
+# -------------------------
+# Server startup
+# -------------------------
+
+def signal_handler(sig, frame):
+    print("\nShutting down server...")
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+
+if __name__ == '__main__':
+    port = 8000
+    server = HTTPServer(('', port), LifeTrackerHandler)
+    print(f"Starting Notification Manager on port {port}...")
+    print("Open http://localhost:8000 in your browser")
+    print("Press Ctrl+C to stop the server")
+    
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nServer stopped")
+
