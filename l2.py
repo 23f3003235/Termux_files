@@ -1108,10 +1108,10 @@ def signal_handler(sig, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 if __name__ == '__main__':
-    port = 8000
+    port = 8001
     server = HTTPServer(('', port), LifeTrackerHandler)
     print(f"Starting Notification Manager on port {port}...")
-    print("Open http://localhost:8000 in your browser")
+    print("Open http://localhost:8001 in your browser")
     print("Press Ctrl+C to stop the server")
     
     try:

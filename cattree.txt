@@ -7,18 +7,28 @@ home maintenance
    └─ bed room cleaning (count: 1, sum of minutes: 45)
 
 career
-   └─ app dev (count: 4, sum of minutes: 420)
+   └─ app dev (count: 4, sum of minutes: 585)
 
 new skill
-   └─ system code (count: 10, sum of minutes: 740)
+   └─ system code (count: 13, sum of minutes: 1025)
+   └─ Photoshop (count: 1, sum of minutes: 60)
 
 BSDS
-   └─ ML (count: 13, sum of minutes: 785)
-   └─ BDM (count: 7, sum of minutes: 240)
+   └─ ML w2 assignments revision (count: 1, sum of minutes: 105)
+   └─ ML (count: 19, sum of minutes: 1065)
+   └─ ML W2 theory (count: 1, sum of minutes: 125)
+   └─ ML w1 theory (count: 1, sum of minutes: 240)
+   └─ ML w1 assignments revision (count: 1, sum of minutes: 45)
+   └─ ML GAW4 (count: 1, sum of minutes: 15)
+   └─ ML GAW1 Rev (count: 1, sum of minutes: 45)
+   └─ ML MOCK QZ1 (count: 1, sum of minutes: 15)
+   └─ BDM (count: 9, sum of minutes: 325)
 
 life
-   └─ tantric yoga (count: 1, sum of minutes: 30)
+   └─ tantric yoga (count: 2, sum of minutes: 45)
 
 oppe
    └─ sc (count: 3, sum of minutes: 155)
+   └─ sc BPT2 (count: 1, sum of minutes: 90)
+   └─ BPT (count: 1, sum of minutes: 30)
 
