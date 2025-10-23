@@ -47,7 +47,7 @@ try:
     plt.savefig(file_path, dpi=100, bbox_inches='tight')
     plt.close()
 
-    print(f"Plot successfully saved as: {file_path}")
+    #print(f"Plot successfully saved as: {file_path}")
 
 except Exception as e:
     print(f"Error: {e}")

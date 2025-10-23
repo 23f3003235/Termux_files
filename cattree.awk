@@ -39,6 +39,6 @@ BEGIN {
     close(outfile);
     
     system("python3 plot_cattree.py");
-    system("am start -a android.intent.action.VIEW -d file:///data/data/com.termux/files/home/termux_files/reports/cattree.png -t image/png 2>/dev/null");
+    #system("am start -a android.intent.action.VIEW -d file:///data/data/com.termux/files/home/termux_files/reports/cattree.png -t image/png 2>/dev/null");
 }
 

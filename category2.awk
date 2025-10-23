@@ -46,6 +46,6 @@ END {
     # Generate plot and open it
     plot_file = "/data/data/com.termux/files/home/termux_files/reports/category_plot.png";
     system("python3 plot_category.py");
-    system("am start -a android.intent.action.VIEW -d file://" plot_file " -t image/png");
+    #system("am start -a android.intent.action.VIEW -d file://" plot_file " -t image/png");
 }
 

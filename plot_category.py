@@ -42,6 +42,6 @@ try:
     file_path = '/data/data/com.termux/files/home/termux_files/reports/category_plot.png'
     plt.savefig(file_path, dpi=100, bbox_inches='tight')
     plt.close()
-    print(f"Category plot successfully saved as: {file_path}")
+    #print(f"Category plot successfully saved as: {file_path}")
 except Exception as e:
     print(f"Error saving plot: {e}")

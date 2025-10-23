@@ -65,6 +65,6 @@ END {
 
     # Generate and open the plot
     system("python3 checklist_compstats.py");
-    system("am start -a android.intent.action.VIEW -d file:///data/data/com.termux/files/home/termux_files/reports/activity_checklist.png -t image/png 2>/dev/null");
+    #system("am start -a android.intent.action.VIEW -d file:///data/data/com.termux/files/home/termux_files/reports/activity_checklist.png -t image/png 2>/dev/null");
 }
 

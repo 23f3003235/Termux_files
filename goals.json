@@ -9,6 +9,18 @@
     "created_at": "2025-10-20T21:30:40.025518",
     "current_progress": 0.0,
     "progress_percentage": 0.0,
-    "last_updated": "2025-10-23T00:27:15.576341"
+    "last_updated": "2025-10-24T03:33:09.521703"
+  },
+  {
+    "id": "1761248691857",
+    "title": "Weekly challenge",
+    "type": "total_minutes",
+    "category": "",
+    "period": "weekly",
+    "target": 1600,
+    "created_at": "2025-10-24T01:14:51.857259",
+    "current_progress": 1359.0,
+    "progress_percentage": 84.9375,
+    "last_updated": "2025-10-24T03:33:09.534299"
   }
 ]

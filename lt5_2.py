@@ -2154,9 +2154,9 @@ html_content = """
             alert('Opening clock app...');
     
     // Optional: Show final confirmation after delay
-            //setTimeout(() => {
-               // alert('Clock app should be open now!');
-           // }, 1000);
+            setTimeout(() => {
+               alert('Clock app should be open now!');
+            }, 1000);
         }
         </script>
         <!-- Global Controls -->

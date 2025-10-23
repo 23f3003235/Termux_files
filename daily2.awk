@@ -37,6 +37,6 @@ END {
 
     # Generate plot and launch image viewer
     system("python3 plotg.py");
-    system("am start -a android.intent.action.VIEW -d file:///data/data/com.termux/files/home/termux_files/reports/daily_activity_plot.png -t image/png");
+   # system("am start -a android.intent.action.VIEW -d file:///data/data/com.termux/files/home/termux_files/reports/daily_activity_plot.png -t image/png");
 }
 
