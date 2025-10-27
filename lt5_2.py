@@ -1326,10 +1326,12 @@ html_content = """
             color: white;
             border: none;
             border-radius: 6px;
-            padding: 6px 12px;
+            padding: 3px 12px;
             cursor: pointer;
             font-size: 12px;
             transition: all 0.3s ease;
+            align-self: flex-start;
+            #margin-top: 0;
         }
         
         .toggle-btn:hover {
@@ -2316,8 +2318,8 @@ html_content = """
                     <h2>Goals System</h2>
                 </div>
                 <div class="section-actions">
-                    <button class="toggle-btn" onclick="event.stopPropagation(); showGoalForm()">New Goal</button>
-                    <button class="toggle-btn" onclick="event.stopPropagation(); updateAllGoalProgress()">Update Progress</button>
+                    <button class="toggle-btn" onclick="event.stopPropagation(); showGoalForm()">New</button>
+                    <button class="toggle-btn" onclick="event.stopPropagation(); updateAllGoalProgress()">Update</button>
                 </div>
             </div>
             <div class="section-content">
@@ -2361,7 +2363,7 @@ html_content = """
         <div class="section" id="manageDataSection">
             <div class="section-header" onclick="toggleSection('manageDataSection')">
                 <div class="section-title">
-                    <h2>Manage Data</h2>
+                    <h2>Query & Manage Data</h2>
                 </div>
             </div>
             <div class="section-content">
