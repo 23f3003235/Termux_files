@@ -2740,7 +2740,7 @@ html_content = """
                     <h2>To-Do List Manager</h2>
                 </div>
                 <div class="section-actions">
-                    <button class="toggle-btn" onclick="event.stopPropagation(); showTodoForm()">New</button>
+                    <button class="toggle-btn" onclick="event.stopPropagation(); showTodoForm()">New Todo</button>
                     <button class="toggle-btn" onclick="event.stopPropagation(); loadAllTodos()">Refresh</button>
                 </div>
             </div>

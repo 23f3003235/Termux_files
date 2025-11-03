@@ -1241,6 +1241,141 @@
                 <div id="dataManagementResult"></div>
             </div>
         </div>
+                <!-- To-Do List Section -->
+        <div class="section" id="todoSection">
+            <div class="section-header" onclick="toggleSection('todoSection')">
+                <div class="section-title">
+                    <h2>To-Do List Manager</h2>
+                </div>
+                <div class="section-actions">
+                    <button class="toggle-btn" onclick="event.stopPropagation(); showTodoForm()">New</button>
+                    <button class="toggle-btn" onclick="event.stopPropagation(); loadAllTodos()">Refresh</button>
+                </div>
+            </div>
+            <div class="section-content">
+                <!-- Option 1: Data Entry Form -->
+                <div id="todoFormSection" style="display: none;">
+                    <div class="advanced-filter-section">
+                        <h3>Add New Todo</h3>
+                        <form id="todoForm" class="centered-form">
+                            <input type="hidden" id="todoId">
+                            <input type="text" id="todoActivity" placeholder="Activity/Description" required style="max-width: 400px;">
+                            <input type="date" id="todoTargetDate" required style="max-width: 400px;">
+                            <input type="text" id="todoCategory" placeholder="Category" required style="max-width: 400px;">
+                            <select id="todoStatus" required style="max-width: 400px;">
+                                <option value="pending">Pending</option>
+                                <option value="completed">Completed</option>
+                            </select>
+                            <div style="display: flex; gap: 12px; width: 100%; max-width: 400px;">
+                                <button type="submit" style="flex: 1;">Save Todo</button>
+                                <button type="button" onclick="hideTodoForm()" style="flex: 1; background: var(--gray-color);">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Option 2: Query/Search Interface -->
+                <div class="filter-section">
+                    <h3>Search & Filter Todos</h3>
+                    <div class="centered-form">
+                        <div class="centered-controls">
+                            <div class="filter-group">
+                                <span class="filter-label">Search Activity</span>
+                                <input type="text" id="todoSearchActivity" placeholder="Enter activity name">
+                            </div>
+                            <div class="filter-group">
+                                <span class="filter-label">Category</span>
+                                <input type="text" id="todoSearchCategory" placeholder="Enter category">
+                            </div>
+                        </div>
+                        
+                        <div class="centered-controls">
+                            <div class="filter-group">
+                                <span class="filter-label">Status</span>
+                                <select id="todoSearchStatus" style="max-width: 200px;">
+                                    <option value="">All Status</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="completed">Completed</option>
+                                </select>
+                            </div>
+                            <button type="button" onclick="searchTodos()">Search Todos</button>
+                            <button type="button" onclick="clearTodoFilters()" style="background: var(--gray-color);">Clear Filters</button>
+                        </div>
+                        
+                        <div class="centered-controls">
+                            <div class="filter-group">
+                                <span class="filter-label">Target Date From</span>
+                                <input type="date" id="todoDateFrom">
+                            </div>
+                            <div class="filter-group">
+                                <span class="filter-label">Target Date To</span>
+                                <input type="date" id="todoDateTo">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Option 3: CRUD Operations Display -->
+                <div id="todoStats" class="stats-card" style="display: none;">
+                    <strong>Summary:</strong> 
+                    <span id="totalTodos">0 todos</span> | 
+                    <span id="pendingTodos">0 pending</span> | 
+                    <span id="completedTodos">0 completed</span>
+                </div>
+                
+                <div id="todoTableContainer" style="overflow-x: auto; max-height: 500px; overflow-y: auto;">
+                    <div id="todoSearchPrompt">
+                        <div>Search Todos</div>
+                        <div>Use search filters to display todos</div>
+                        <div>Apply filters above or click "Refresh" to view all todos</div>
+                    </div>
+                    
+                    <div id="noTodosMessage" style="display: none;">
+                        <div>No Todos</div>
+                        <div>No matching todos found</div>
+                        <div>Try different search terms or create a new todo</div>
+                    </div>
+                    
+                    <table id="todoTable" class="data-table table-hidden">
+                        <thead>
+                            <tr>
+                                <th>Date Created</th>
+                                <th>Activity</th>
+                                <th>Target Date</th>
+                                <th>Category</th>
+                                <th>Status</th>
+                                <th style="text-align: center; width: 160px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="todoTableBody">
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div id="todoEditModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+                    <div style="background: white; padding: 30px; border-radius: var(--radius); width: 95%; max-width: 500px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); backdrop-filter: var(--blur);">
+                        <h3 style="margin-bottom: 25px; color: #1D1D1F; text-align: center; font-size: 1.3em;">Edit Todo</h3>
+                        <form id="todoEditForm" class="centered-form">
+                            <input type="hidden" id="editTodoId">
+                            <input type="text" id="editTodoActivity" placeholder="Activity" required style="max-width: 400px;">
+                            <input type="date" id="editTodoTargetDate" required style="max-width: 400px;">
+                            <input type="text" id="editTodoCategory" placeholder="Category" required style="max-width: 400px;">
+                            <select id="editTodoStatus" required style="max-width: 400px;">
+                                <option value="pending">Pending</option>
+                                <option value="completed">Completed</option>
+                            </select>
+                            <div style="display: flex; gap: 12px; margin-top: 25px; width: 100%; max-width: 400px;">
+                                <button type="submit" style="flex: 1; background: var(--primary-color); padding: 14px;">Save Changes</button>
+                                <button type="button" onclick="closeTodoEditModal()" style="flex: 1; background: var(--gray-color); padding: 14px;">Cancel</button>
+                                <button type="button" onclick="deleteTodo()" style="flex: 1; background: var(--danger-color); padding: 14px;">Delete Todo</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <div id="todoResult"></div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -2315,6 +2450,311 @@
             
             dashboard.innerHTML = html;
         }
+                // To-Do List Functions
+        let currentTodos = [];
+        let filteredTodos = [];
+        
+        async function loadAllTodos() {
+            try {
+                const response = await fetch('/get_all_todos');
+                const result = await response.json();
+                
+                if (result.status === 'success' && result.todos.length > 0) {
+                    currentTodos = result.todos;
+                    filteredTodos = currentTodos;
+                    displayTodos(currentTodos);
+                    updateTodoStats(currentTodos);
+                    showTodoTable();
+                } else {
+                    showNoTodosMessage();
+                    hideTodoStats();
+                }
+            } catch (error) {
+                console.error('Error loading todos:', error);
+                showNoTodosMessage();
+                hideTodoStats();
+            }
+        }
+        
+        function displayTodos(todos) {
+            const tableBody = document.getElementById('todoTableBody');
+            
+            if (todos.length === 0) {
+                showNoTodosMessage();
+                hideTodoStats();
+                return;
+            }
+            
+            tableBody.innerHTML = '';
+            showTodoTable();
+            
+            todos.forEach(todo => {
+                const tr = document.createElement('tr');
+                const statusClass = todo.status === 'completed' ? 'success' : 'warning';
+                
+                tr.innerHTML = `
+                    <td>${todo.date_created || 'N/A'}</td>
+                    <td>${todo.activity || ''}</td>
+                    <td>${todo.target_date || ''}</td>
+                    <td>${todo.category || ''}</td>
+                    <td><span class="result ${statusClass}" style="padding: 4px 8px; font-size: 12px;">${todo.status || 'pending'}</span></td>
+                    <td style="text-align: center;">
+                        <button class="action-btn edit-btn" onclick="openTodoEditModal('${todo.id}')">Edit</button>
+                        <button class="delete-btn-sm" onclick="quickDeleteTodo('${todo.id}')">Delete</button>
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+            });
+            
+            updateTodoStats(todos);
+        }
+        
+        function updateTodoStats(todos) {
+            const totalTodos = todos.length;
+            const pendingTodos = todos.filter(todo => todo.status === 'pending').length;
+            const completedTodos = todos.filter(todo => todo.status === 'completed').length;
+            
+            document.getElementById('totalTodos').textContent = `${totalTodos} todos`;
+            document.getElementById('pendingTodos').textContent = `${pendingTodos} pending`;
+            document.getElementById('completedTodos').textContent = `${completedTodos} completed`;
+            document.getElementById('todoStats').style.display = 'block';
+        }
+        
+        function hideTodoStats() {
+            document.getElementById('todoStats').style.display = 'none';
+        }
+        
+        function showTodoSearchPrompt() {
+            document.getElementById('todoSearchPrompt').style.display = 'block';
+            document.getElementById('noTodosMessage').style.display = 'none';
+            document.getElementById('todoTable').classList.remove('table-visible');
+            document.getElementById('todoTable').classList.add('table-hidden');
+            document.getElementById('todoStats').style.display = 'none';
+        }
+        
+        function showNoTodosMessage() {
+            document.getElementById('todoSearchPrompt').style.display = 'none';
+            document.getElementById('noTodosMessage').style.display = 'block';
+            document.getElementById('todoTable').classList.remove('table-visible');
+            document.getElementById('todoTable').classList.add('table-hidden');
+            document.getElementById('todoStats').style.display = 'none';
+        }
+        
+        function showTodoTable() {
+            document.getElementById('todoSearchPrompt').style.display = 'none';
+            document.getElementById('noTodosMessage').style.display = 'none';
+            document.getElementById('todoTable').classList.remove('table-hidden');
+            document.getElementById('todoTable').classList.add('table-visible');
+        }
+        
+        async function searchTodos() {
+            const activity = document.getElementById('todoSearchActivity').value;
+            const category = document.getElementById('todoSearchCategory').value;
+            const status = document.getElementById('todoSearchStatus').value;
+            const dateFrom = document.getElementById('todoDateFrom').value;
+            const dateTo = document.getElementById('todoDateTo').value;
+            
+            if (currentTodos.length === 0) {
+                await loadAllTodos();
+            }
+            
+            if (!activity && !category && !status && !dateFrom && !dateTo) {
+                filteredTodos = currentTodos;
+                displayTodos(currentTodos);
+                updateTodoStats(currentTodos);
+                return;
+            }
+            
+            try {
+                const response = await fetch('/search_todos', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        activity: activity,
+                        category: category,
+                        status: status,
+                        target_date_from: dateFrom,
+                        target_date_to: dateTo
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.status === 'success') {
+                    filteredTodos = result.todos;
+                    displayTodos(result.todos);
+                } else {
+                    document.getElementById('todoResult').innerHTML = '<div class="result error">' + result.message + '</div>';
+                }
+            } catch (error) {
+                document.getElementById('todoResult').innerHTML = '<div class="result error">Search error: ' + error + '</div>';
+            }
+        }
+        
+        function clearTodoFilters() {
+            document.getElementById('todoSearchActivity').value = '';
+            document.getElementById('todoSearchCategory').value = '';
+            document.getElementById('todoSearchStatus').value = '';
+            document.getElementById('todoDateFrom').value = '';
+            document.getElementById('todoDateTo').value = '';
+            currentTodos = [];
+            filteredTodos = [];
+            showTodoSearchPrompt();
+        }
+        
+        function showTodoForm() {
+            document.getElementById('todoFormSection').style.display = 'block';
+            document.getElementById('todoForm').reset();
+            document.getElementById('todoId').value = '';
+            // Set default target date to today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('todoTargetDate').value = today;
+        }
+        
+        function hideTodoForm() {
+            document.getElementById('todoFormSection').style.display = 'none';
+        }
+        
+        document.getElementById('todoForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const todoData = {
+                activity: document.getElementById('todoActivity').value,
+                target_date: document.getElementById('todoTargetDate').value,
+                category: document.getElementById('todoCategory').value,
+                status: document.getElementById('todoStatus').value
+            };
+            
+            try {
+                const response = await fetch('/add_todo', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(todoData)
+                });
+                
+                const result = await response.json();
+                if (result.status === 'success') {
+                    hideTodoForm();
+                    loadAllTodos();
+                    document.getElementById('todoResult').innerHTML = '<div class="result success">' + result.message + '</div>';
+                } else {
+                    document.getElementById('todoResult').innerHTML = '<div class="result error">' + result.message + '</div>';
+                }
+            } catch (error) {
+                document.getElementById('todoResult').innerHTML = '<div class="result error">Network error: ' + error + '</div>';
+            }
+        });
+        
+        function openTodoEditModal(todoId) {
+            const todo = currentTodos.find(t => t.id === todoId);
+            
+            if (!todo) {
+                alert('Error: Could not find the todo to edit');
+                return;
+            }
+            
+            document.getElementById('editTodoId').value = todo.id;
+            document.getElementById('editTodoActivity').value = todo.activity || '';
+            document.getElementById('editTodoTargetDate').value = todo.target_date || '';
+            document.getElementById('editTodoCategory').value = todo.category || '';
+            document.getElementById('editTodoStatus').value = todo.status || 'pending';
+            document.getElementById('todoEditModal').style.display = 'flex';
+        }
+        
+        function closeTodoEditModal() {
+            document.getElementById('todoEditModal').style.display = 'none';
+        }
+        
+        async function quickDeleteTodo(todoId) {
+            if (confirm('Are you sure you want to delete this todo?')) {
+                try {
+                    const response = await fetch('/delete_todo', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ id: todoId })
+                    });
+                    
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        loadAllTodos();
+                        document.getElementById('todoResult').innerHTML = '<div class="result success">' + result.message + '</div>';
+                    } else {
+                        document.getElementById('todoResult').innerHTML = '<div class="result error">' + result.message + '</div>';
+                    }
+                } catch (error) {
+                    document.getElementById('todoResult').innerHTML = '<div class="result error">Error deleting todo: ' + error + '</div>';
+                }
+            }
+        }
+        
+        async function deleteTodo() {
+            const todoId = document.getElementById('editTodoId').value;
+            if (confirm('Are you sure you want to delete this todo?')) {
+                try {
+                    const response = await fetch('/delete_todo', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ id: todoId })
+                    });
+                    
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        closeTodoEditModal();
+                        loadAllTodos();
+                        document.getElementById('todoResult').innerHTML = '<div class="result success">' + result.message + '</div>';
+                    } else {
+                        document.getElementById('todoResult').innerHTML = '<div class="result error">' + result.message + '</div>';
+                    }
+                } catch (error) {
+                    document.getElementById('todoResult').innerHTML = '<div class="result error">Error deleting todo: ' + error + '</div>';
+                }
+            }
+        }
+        
+        document.getElementById('todoEditForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const todoData = {
+                id: document.getElementById('editTodoId').value,
+                activity: document.getElementById('editTodoActivity').value,
+                target_date: document.getElementById('editTodoTargetDate').value,
+                category: document.getElementById('editTodoCategory').value,
+                status: document.getElementById('editTodoStatus').value
+            };
+            
+            try {
+                const response = await fetch('/update_todo', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(todoData)
+                });
+                
+                const result = await response.json();
+                if (result.status === 'success') {
+                    closeTodoEditModal();
+                    loadAllTodos();
+                    document.getElementById('todoResult').innerHTML = '<div class="result success">' + result.message + '</div>';
+                } else {
+                    document.getElementById('todoResult').innerHTML = '<div class="result error">' + result.message + '</div>';
+                }
+            } catch (error) {
+                document.getElementById('todoResult').innerHTML = '<div class="result error">Error updating todo: ' + error + '</div>';
+            }
+        });
+        
+        // Initialize todo section
+        document.addEventListener('DOMContentLoaded', function() {
+            showTodoSearchPrompt();
+        });
     </script>
 </body>
 </html>

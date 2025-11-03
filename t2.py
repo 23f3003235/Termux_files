@@ -3106,7 +3106,7 @@ html_content = """
                     if (result.summary && result.summary.trim()) {
                         resultDiv.innerHTML += 
                             '<button class="summary-btn" onclick="toggleSummary()">View Summary</button>' +
-                            '<button class="minimize-btn" onclick="minimizeSummary()">Minimize</button>';
+                            # '<button class="minimize-btn" onclick="minimizeSummary()">Minimize</button>';
                         summaryContent.textContent = result.summary;
                         summarySection.style.display = 'block';
                     }
@@ -3485,12 +3485,12 @@ html_content = """
             resultDiv.innerHTML = `
                 <div class="result info">
                     <strong>Data Integrity Features:</strong><br>
-                    • Automatic backups before data modifications<br>
-                    • Date validation (DD-MM-YYYY format)<br>
-                    • Activity and category length limits<br>
-                    • Minutes validation (1-1440)<br>
-                    • Data integrity checking<br>
-                    • Automatic cleanup of old backups (keeps last 10)
+                    Automatic backups before data modifications<br>
+                    Date validation (DD-MM-YYYY format)<br>
+                    Activity and category length limits<br>
+                    Minutes validation (1-1440)<br>
+                    Data integrity checking<br>
+                    Automatic cleanup of old backups (keeps last 10)
                 </div>
             `;
         }
