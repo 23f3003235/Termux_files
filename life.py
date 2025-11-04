@@ -2222,6 +2222,7 @@ html_content = """
         }
         
         .global-controls {
+            display: none !important;
             display: flex;
             justify-content: center;
             gap: 15px;
@@ -2339,6 +2340,7 @@ html_content = """
             }
             
             .global-controls {
+                display: none !important;
                 flex-direction: column;
                 gap: 10px;
             }
