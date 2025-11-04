@@ -2817,9 +2817,7 @@ html_content = """
                 
                 <div id="todoTableContainer" style="overflow-x: auto; max-height: 500px; overflow-y: auto;">
                     <div id="todoSearchPrompt">
-                        <div>Search Todos</div>
-                        <div>Use search filters to display todos</div>
-                        <div>Apply filters above or click "Refresh" to view all todos</div>
+
                     </div>
                     
                     <div id="noTodosMessage" style="display: none;">
@@ -3485,12 +3483,12 @@ html_content = """
             resultDiv.innerHTML = `
                 <div class="result info">
                     <strong>Data Integrity Features:</strong><br>
-                    • Automatic backups before data modifications<br>
-                    • Date validation (DD-MM-YYYY format)<br>
-                    • Activity and category length limits<br>
-                    • Minutes validation (1-1440)<br>
-                    • Data integrity checking<br>
-                    • Automatic cleanup of old backups (keeps last 10)
+                     Automatic backups before data modifications<br>
+                     Date validation (DD-MM-YYYY format)<br>
+                     Activity and category length limits<br>
+                     Minutes validation (1-1440)<br>
+                     Data integrity checking<br>
+                     Automatic cleanup of old backups (keeps last 10)
                 </div>
             `;
         }
