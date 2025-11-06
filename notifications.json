@@ -1,10 +1,10 @@
 {
   "daily_report_enabled": true,
-  "daily_report_time": "06:00",
+  "daily_report_time": "06:05",
   "todo_reminder_enabled": true,
-  "todo_reminder_time": "06:05",
+  "todo_reminder_time": "07:00",
   "goal_reminder_enabled": true,
-  "goal_reminder_time": "06:10",
+  "goal_reminder_time": "06:14",
   "specific_date_enabled": false,
   "specific_date": "",
   "specific_date_time": "10:00",
