@@ -25,9 +25,9 @@
     "activity": "ML W7 GA DL",
     "target_date": "2025-11-12",
     "category": "BSDS",
-    "status": "pending",
+    "status": "completed",
     "created_at": "2025-11-04T06:57:01.040512",
-    "updated_at": "2025-11-04T06:57:01.040553"
+    "updated_at": "2025-11-13T09:02:14.982003"
   },
   {
     "id": "a1e89a8c-9093-4d71-b25f-50b2e60e5e8a",
@@ -35,9 +35,9 @@
     "activity": "BDM LECTURE W4 TO W6",
     "target_date": "2025-11-08",
     "category": "BSDS",
-    "status": "pending",
+    "status": "completed",
     "created_at": "2025-11-04T07:00:03.737011",
-    "updated_at": "2025-11-04T07:00:03.737063"
+    "updated_at": "2025-11-08T08:05:14.824252"
   },
   {
     "id": "4d36e90e-d815-413a-ad21-e40363f4d766",
@@ -48,5 +48,25 @@
     "status": "pending",
     "created_at": "2025-11-05T21:15:54.422979",
     "updated_at": "2025-11-05T21:15:54.423105"
+  },
+  {
+    "id": "9bf8c3cb-6093-4079-8da7-5a40b43900a4",
+    "date_created": "09-11-2025",
+    "activity": "SC DO ALL ASSIGNMENTS",
+    "target_date": "2025-11-20",
+    "category": "OPPE",
+    "status": "pending",
+    "created_at": "2025-11-09T08:28:39.568009",
+    "updated_at": "2025-11-13T09:02:45.971513"
+  },
+  {
+    "id": "cb4338c8-0263-4a78-ba63-5d14c3ed7be3",
+    "date_created": "11-11-2025",
+    "activity": "BDM GA 3",
+    "target_date": "2025-11-21",
+    "category": "BSDS",
+    "status": "pending",
+    "created_at": "2025-11-11T15:51:04.521140",
+    "updated_at": "2025-11-11T15:51:04.521249"
   }
 ]

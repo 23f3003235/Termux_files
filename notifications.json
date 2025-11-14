@@ -1,15 +1,15 @@
 {
   "daily_report_enabled": true,
-  "daily_report_time": "06:05",
+  "daily_report_time": "06:00",
   "todo_reminder_enabled": true,
-  "todo_reminder_time": "07:00",
+  "todo_reminder_time": "06:05",
   "goal_reminder_enabled": true,
-  "goal_reminder_time": "06:14",
+  "goal_reminder_time": "18:10",
   "specific_date_enabled": false,
   "specific_date": "",
   "specific_date_time": "10:00",
   "specific_date_title": "",
   "specific_date_message": "",
-  "consistency_reminder_enabled": false,
-  "consistency_reminder_time": "21:00"
+  "consistency_reminder_enabled": true,
+  "consistency_reminder_time": "06:15"
 }
