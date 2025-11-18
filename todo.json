@@ -40,16 +40,6 @@
     "updated_at": "2025-11-08T08:05:14.824252"
   },
   {
-    "id": "4d36e90e-d815-413a-ad21-e40363f4d766",
-    "date_created": "05-11-2025",
-    "activity": "BDM TIMED ASSIGNMENTS",
-    "target_date": "2025-11-16",
-    "category": "BSDS",
-    "status": "pending",
-    "created_at": "2025-11-05T21:15:54.422979",
-    "updated_at": "2025-11-05T21:15:54.423105"
-  },
-  {
     "id": "9bf8c3cb-6093-4079-8da7-5a40b43900a4",
     "date_created": "09-11-2025",
     "activity": "SC DO ALL ASSIGNMENTS",
@@ -68,5 +58,35 @@
     "status": "pending",
     "created_at": "2025-11-11T15:51:04.521140",
     "updated_at": "2025-11-11T15:51:04.521249"
+  },
+  {
+    "id": "2b39316f-cba8-4357-9a51-f4858cc209e2",
+    "date_created": "17-11-2025",
+    "activity": "QUIZ 2 MOCK",
+    "target_date": "2025-11-18",
+    "category": "BSDS",
+    "status": "pending",
+    "created_at": "2025-11-17T11:22:29.182687",
+    "updated_at": "2025-11-17T11:22:29.183217"
+  },
+  {
+    "id": "27fa67c9-bc5d-4448-9473-cf73b1a0f00d",
+    "date_created": "17-11-2025",
+    "activity": "BPT 4 P4",
+    "target_date": "2025-11-19",
+    "category": "OPPE",
+    "status": "pending",
+    "created_at": "2025-11-17T11:22:56.418746",
+    "updated_at": "2025-11-17T11:22:56.419128"
+  },
+  {
+    "id": "75639b9f-c94c-4602-8af5-7b4e0611005c",
+    "date_created": "17-11-2025",
+    "activity": "ML W8 GA REV",
+    "target_date": "2025-11-18",
+    "category": "BSDS",
+    "status": "pending",
+    "created_at": "2025-11-17T11:23:25.192602",
+    "updated_at": "2025-11-17T11:23:25.192677"
   }
 ]

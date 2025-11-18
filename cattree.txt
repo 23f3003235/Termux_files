@@ -1,42 +1,49 @@
-Category Tree Graph for Month/Year: 10/2025
-workshop
-   └─ azure cloud (count: 1, sum of minutes: 135)
-
-home maintenance
-   └─ FF Outer area cleaning (count: 1, sum of minutes: 120)
-   └─ bed room cleaning (count: 1, sum of minutes: 45)
-
-career
-   └─ app dev (count: 4, sum of minutes: 585)
-
-new skill
-   └─ system code (count: 14, sum of minutes: 1085)
-   └─ Photoshop (count: 1, sum of minutes: 60)
+Category Tree Graph for Month/Year: 11/2025
+CAREER
+   └─ APP DEV (count: 4, sum of minutes: 360)
 
 BSDS
-   └─ ML w2 assignments revision (count: 1, sum of minutes: 105)
-   └─ ML (count: 19, sum of minutes: 1065)
-   └─ ML W3 TA VIDEO 1 (count: 1, sum of minutes: 105)
-   └─ ML GAW2 revision (count: 1, sum of minutes: 60)
-   └─ ML W2 theory (count: 1, sum of minutes: 125)
-   └─ ML w1 theory (count: 1, sum of minutes: 240)
-   └─ ML W3 THEORY VIDEO 2 (count: 1, sum of minutes: 134)
-   └─ ML w1 assignments revision (count: 1, sum of minutes: 45)
-   └─ BDM GA1 REV (count: 1, sum of minutes: 60)
-   └─ ML GAW4 (count: 1, sum of minutes: 15)
-   └─ ML GAW1 Rev (count: 1, sum of minutes: 45)
-   └─ ML MOCK QZ1 (count: 1, sum of minutes: 15)
-   └─ BDM (count: 9, sum of minutes: 325)
+   └─ BDM W7 L 1&2 (count: 1, sum of minutes: 35)
+   └─ BDM W5 LECTURES (count: 1, sum of minutes: 160)
+   └─ BDM W6 LECTURE1 (count: 1, sum of minutes: 25)
+   └─ BDM W4 LECTURE5_6_7 (count: 1, sum of minutes: 120)
+   └─ ML W7 LECTURE 1 (count: 1, sum of minutes: 33)
+   └─ ML W7 LECTURE 2 (count: 1, sum of minutes: 20)
+   └─ ML W7 LECTURE 3 (count: 1, sum of minutes: 25)
+   └─ ML W7 PA (count: 1, sum of minutes: 180)
+   └─ ML W5 & W6 OPEN SESSION (count: 1, sum of minutes: 150)
+   └─ BDM W6 LECTURE 6TO8 (count: 1, sum of minutes: 45)
+   └─ ML W6 PA (count: 1, sum of minutes: 60)
+   └─ ML W6 OPEN SESSION (count: 4, sum of minutes: 180)
+   └─ BDM L7TO10 (count: 1, sum of minutes: 90)
+   └─ ML W6 L2_3_4 (count: 1, sum of minutes: 50)
+   └─ ML W7 ASSIGNMENT (count: 1, sum of minutes: 45)
+   └─ ML W7 GA (count: 1, sum of minutes: 120)
+   └─ BDM W8 L1 (count: 1, sum of minutes: 25)
+   └─ ML W8 L5TO8 (count: 1, sum of minutes: 70)
+   └─ ML W6 OPEN SESSION  (count: 1, sum of minutes: 60)
+   └─ BDM W7 L3 (count: 3, sum of minutes: 75)
+   └─ ML W6 TUTORIAL  (count: 1, sum of minutes: 65)
+   └─ BPT 3 PROB4 (count: 1, sum of minutes: 30)
+   └─ BDM W6 LECTURE 3_4 (count: 1, sum of minutes: 50)
+   └─ ML W7 LECTURE4 (count: 1, sum of minutes: 15)
+   └─ BDM W7 L4to6 (count: 1, sum of minutes: 75)
+   └─ BDM W4 LECTURE 3_4 (count: 1, sum of minutes: 55)
+   └─ ML W8 L1TO3 (count: 1, sum of minutes: 60)
+   └─ ML W8 L3_4 (count: 1, sum of minutes: 25)
+   └─ ML W6 ASSIGNMENTS REVISION (count: 1, sum of minutes: 90)
+   └─ BDM GA2 ASSINGMENT (count: 1, sum of minutes: 90)
+   └─ ML W7 A 1 TO 4 (count: 1, sum of minutes: 70)
 
-life
-   └─ Breath control in singing (count: 1, sum of minutes: 20)
-   └─ tantric yoga (count: 2, sum of minutes: 45)
-   └─ Deficiency in vegan food (count: 1, sum of minutes: 60)
-
-oppe
-   └─ sc (count: 3, sum of minutes: 155)
-   └─ Awk video 2 w9 (count: 1, sum of minutes: 60)
-   └─ BPT1 (count: 1, sum of minutes: 30)
-   └─ BPT2 (count: 1, sum of minutes: 90)
-   └─ AWK W9 VIDEO 2 (count: 1, sum of minutes: 40)
+OPPE
+   └─ SC (count: 1, sum of minutes: 60)
+   └─ SC SED VM 1 (count: 1, sum of minutes: 60)
+   └─ SC W9 PA1TO3 (count: 1, sum of minutes: 120)
+   └─ SC OPPE PRACTICE (count: 1, sum of minutes: 120)
+   └─ SC PPA4.1&4.2 (count: 1, sum of minutes: 50)
+   └─ SC BPT 4 P1 (count: 1, sum of minutes: 30)
+   └─ BPT 3 P1 (count: 1, sum of minutes: 45)
+   └─ SC AWK W9 (count: 1, sum of minutes: 45)
+   └─ SC SSH PPA_3.1 (count: 1, sum of minutes: 60)
+   └─ BPT 2_3 (count: 1, sum of minutes: 120)
 
