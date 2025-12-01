@@ -7,9 +7,9 @@
     "period": "daily",
     "target": 250,
     "created_at": "2025-10-20T21:30:40.025518",
-    "current_progress": 276.0,
+    "current_progress": 251.0,
     "progress_percentage": 100,
-    "last_updated": "2025-11-17T23:36:01.059067"
+    "last_updated": "2025-12-01T23:53:26.824495"
   },
   {
     "id": "1761248691857",
@@ -19,8 +19,8 @@
     "period": "weekly",
     "target": 1600,
     "created_at": "2025-10-24T01:14:51.857259",
-    "current_progress": 276.0,
-    "progress_percentage": 17.25,
-    "last_updated": "2025-11-17T23:36:01.066879"
+    "current_progress": 251.0,
+    "progress_percentage": 15.687499999999998,
+    "last_updated": "2025-12-01T23:53:26.825945"
   }
 ]

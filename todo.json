@@ -55,19 +55,19 @@
     "activity": "BDM GA 3",
     "target_date": "2025-11-21",
     "category": "BSDS",
-    "status": "pending",
+    "status": "completed",
     "created_at": "2025-11-11T15:51:04.521140",
-    "updated_at": "2025-11-11T15:51:04.521249"
+    "updated_at": "2025-11-21T12:42:37.996257"
   },
   {
     "id": "2b39316f-cba8-4357-9a51-f4858cc209e2",
     "date_created": "17-11-2025",
     "activity": "QUIZ 2 MOCK",
-    "target_date": "2025-11-18",
+    "target_date": "2025-11-20",
     "category": "BSDS",
-    "status": "pending",
+    "status": "completed",
     "created_at": "2025-11-17T11:22:29.182687",
-    "updated_at": "2025-11-17T11:22:29.183217"
+    "updated_at": "2025-11-21T12:42:31.744758"
   },
   {
     "id": "27fa67c9-bc5d-4448-9473-cf73b1a0f00d",
@@ -75,9 +75,9 @@
     "activity": "BPT 4 P4",
     "target_date": "2025-11-19",
     "category": "OPPE",
-    "status": "pending",
+    "status": "completed",
     "created_at": "2025-11-17T11:22:56.418746",
-    "updated_at": "2025-11-17T11:22:56.419128"
+    "updated_at": "2025-11-19T12:56:23.992653"
   },
   {
     "id": "75639b9f-c94c-4602-8af5-7b4e0611005c",
@@ -85,8 +85,8 @@
     "activity": "ML W8 GA REV",
     "target_date": "2025-11-18",
     "category": "BSDS",
-    "status": "pending",
+    "status": "completed",
     "created_at": "2025-11-17T11:23:25.192602",
-    "updated_at": "2025-11-17T11:23:25.192677"
+    "updated_at": "2025-11-19T12:56:14.330635"
   }
 ]
